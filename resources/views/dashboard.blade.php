@@ -54,229 +54,109 @@
     </div>
 </div>
 
-<!-- Charts Row -->
-<div class="row g-3 mb-4">
-    <!-- PNS vs PPPK Pie Chart -->
-    <div class="col-lg-4">
-        <div class="card-custom animate-in">
-            <div class="card-custom-header">
-                <h6><i class="bi bi-pie-chart-fill me-2 text-primary"></i>Komposisi Pegawai</h6>
+@if($totalKgbSegera > 0 || $totalKgbJatuhTempo > 0)
+<!-- KGB Notice Banner -->
+<div class="card-custom mb-4 animate-in" style="background:#FFFFFF;border-left:4px solid var(--primary);">
+    <div class="p-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+        <div class="d-flex align-items-center gap-3">
+            <div style="width:40px;height:40px;border-radius:8px;background:var(--brown-subtle);display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:20px;flex-shrink:0;">
+                <i class="bi bi-bell-fill"></i>
             </div>
-            <div class="card-custom-body">
-                <div class="chart-container" style="height: 240px;">
-                    <canvas id="chartKomposisi"></canvas>
-                </div>
-            </div>
-        </div>
-    </div>
-
-    <!-- UPTD Bar Chart -->
-    <div class="col-lg-4">
-        <div class="card-custom animate-in">
-            <div class="card-custom-header">
-                <h6><i class="bi bi-bar-chart-fill me-2 text-primary"></i>Pegawai per UPTD</h6>
-            </div>
-            <div class="card-custom-body">
-                <div class="chart-container" style="height: 240px;">
-                    <canvas id="chartUptd"></canvas>
-                </div>
+            <div>
+                <strong style="font-size:14px;color:var(--text-primary);display:block;">Pemberitahuan Kenaikan Gaji Berkala (KGB)</strong>
+                <span style="font-size:13px;color:var(--text-secondary);">
+                    Terdapat <strong>{{ $totalKgbSegera }} pegawai</strong> mendekati jadwal KGB (1–3 bulan) dan <strong>{{ $totalKgbJatuhTempo }} pegawai</strong> telah jatuh tempo perlu penerbitan SK.
+                </span>
             </div>
         </div>
-    </div>
-
-    <!-- Status Doughnut Chart -->
-    <div class="col-lg-4">
-        <div class="card-custom animate-in">
-            <div class="card-custom-header">
-                <h6><i class="bi bi-activity me-2 text-primary"></i>Status Kepegawaian</h6>
-            </div>
-            <div class="card-custom-body">
-                <div class="chart-container" style="height: 240px;">
-                    <canvas id="chartStatus"></canvas>
-                </div>
-            </div>
-        </div>
+        <a href="{{ route('kgb.index') }}" class="btn-filter" style="padding:7px 16px;font-size:13px;">
+            Pantau Jadwal KGB <i class="bi bi-arrow-right"></i>
+        </a>
     </div>
 </div>
+@endif
 
-<!-- Bottom Row -->
+<!-- Main Data Row -->
 <div class="row g-3">
-    <!-- Top Kabupaten -->
-    <div class="col-lg-5">
-        <div class="card-custom animate-in">
-            <div class="card-custom-header">
-                <h6><i class="bi bi-geo-alt-fill me-2 text-primary"></i>Distribusi Kab/Kota</h6>
-            </div>
-            <div class="card-custom-body p-0">
-                <table class="table-custom">
-                    <thead>
-                        <tr>
-                            <th>Kabupaten/Kota</th>
-                            <th class="text-end">Jumlah</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @forelse($kabupatenData as $kab)
-                        <tr>
-                            <td>
-                                <a href="{{ route('pegawai.index', ['kabupaten' => $kab->kabupaten_kota]) }}" class="text-primary fw-medium">
-                                    {{ $kab->kabupaten_kota }}
-                                </a>
-                            </td>
-                            <td class="text-end">
-                                <span class="count-badge">{{ $kab->total }}</span>
-                            </td>
-                        </tr>
-                        @empty
-                        <tr><td colspan="2" class="text-center text-muted py-4">Tidak ada data</td></tr>
-                        @endforelse
-                    </tbody>
-                </table>
-            </div>
-        </div>
-    </div>
-
     <!-- UPTD Summary -->
     <div class="col-lg-7">
         <div class="card-custom animate-in">
             <div class="card-custom-header">
-                <h6><i class="bi bi-diagram-3-fill me-2 text-primary"></i>Ringkasan UPTD</h6>
+                <h6><i class="bi bi-diagram-3-fill me-2 text-primary"></i>Ringkasan Unit Kerja (UPTD)</h6>
                 <a href="{{ route('uptd.index') }}" class="btn-action btn-view">
                     Lihat Semua <i class="bi bi-arrow-right"></i>
                 </a>
             </div>
             <div class="card-custom-body p-0">
-                <table class="table-custom">
-                    <thead>
-                        <tr>
-                            <th>Unit Kerja</th>
-                            <th class="text-center">PNS</th>
-                            <th class="text-center">PPPK</th>
-                            <th class="text-center">Aktif</th>
-                            <th class="text-center">Pensiun</th>
-                            <th class="text-center">Total</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        @foreach($uptdData as $uptd)
-                        <tr>
-                            <td>
-                                <a href="{{ route('uptd.show', $uptd) }}" class="text-primary fw-medium">
-                                    {{ $uptd->nama_uptd }}
-                                </a>
-                            </td>
-                            <td class="text-center"><span class="badge-custom badge-pns">{{ $uptd->pns_count }}</span></td>
-                            <td class="text-center"><span class="badge-custom badge-pppk">{{ $uptd->pppk_count }}</span></td>
-                            <td class="text-center"><span class="badge-custom badge-aktif">{{ $uptd->aktif_count }}</span></td>
-                            <td class="text-center"><span class="badge-custom badge-pensiun">{{ $uptd->pensiun_count }}</span></td>
-                            <td class="text-center"><span class="count-badge">{{ $uptd->pegawai_count }}</span></td>
-                        </tr>
-                        @endforeach
-                    </tbody>
-                </table>
+                <div class="table-responsive">
+                    <table class="table-custom">
+                        <thead>
+                            <tr>
+                                <th>Unit Kerja</th>
+                                <th class="text-center">PNS</th>
+                                <th class="text-center">PPPK</th>
+                                <th class="text-center">Aktif</th>
+                                <th class="text-center">Pensiun</th>
+                                <th class="text-center">Total</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @foreach($uptdData as $uptd)
+                            <tr>
+                                <td>
+                                    <a href="{{ route('uptd.show', $uptd) }}" class="text-primary fw-medium">
+                                        {{ $uptd->nama_uptd }}
+                                    </a>
+                                </td>
+                                <td class="text-center"><span class="badge-custom badge-pns">{{ $uptd->pns_count }}</span></td>
+                                <td class="text-center"><span class="badge-custom badge-pppk">{{ $uptd->pppk_count }}</span></td>
+                                <td class="text-center"><span class="badge-custom badge-aktif">{{ $uptd->aktif_count }}</span></td>
+                                <td class="text-center"><span class="badge-custom badge-pensiun">{{ $uptd->pensiun_count }}</span></td>
+                                <td class="text-center"><span class="count-badge">{{ $uptd->pegawai_count }}</span></td>
+                            </tr>
+                            @endforeach
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Top Kabupaten -->
+    <div class="col-lg-5">
+        <div class="card-custom animate-in">
+            <div class="card-custom-header">
+                <h6><i class="bi bi-geo-alt-fill me-2 text-primary"></i>Distribusi Kab/Kota (Top 10)</h6>
+            </div>
+            <div class="card-custom-body p-0">
+                <div class="table-responsive">
+                    <table class="table-custom">
+                        <thead>
+                            <tr>
+                                <th>Kabupaten/Kota</th>
+                                <th class="text-end">Jumlah Pegawai</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            @forelse($kabupatenData as $kab)
+                            <tr>
+                                <td>
+                                    <a href="{{ route('pegawai.index', ['kabupaten' => $kab->kabupaten_kota]) }}" class="text-primary fw-medium">
+                                        {{ $kab->kabupaten_kota }}
+                                    </a>
+                                </td>
+                                <td class="text-end">
+                                    <span class="count-badge">{{ $kab->total }}</span>
+                                </td>
+                            </tr>
+                            @empty
+                            <tr><td colspan="2" class="text-center text-muted py-4">Tidak ada data</td></tr>
+                            @endforelse
+                        </tbody>
+                    </table>
+                </div>
             </div>
         </div>
     </div>
 </div>
 @endsection
-
-@push('scripts')
-<script>
-document.addEventListener('DOMContentLoaded', function() {
-    // Chart defaults
-    Chart.defaults.font.family = "'Inter', sans-serif";
-    Chart.defaults.font.size = 12;
-    Chart.defaults.plugins.legend.labels.usePointStyle = true;
-    Chart.defaults.plugins.legend.labels.pointStyle = 'circle';
-    Chart.defaults.plugins.legend.labels.padding = 16;
-
-    // PNS vs PPPK Doughnut
-    new Chart(document.getElementById('chartKomposisi'), {
-        type: 'doughnut',
-        data: {
-            labels: ['PNS', 'PPPK'],
-            datasets: [{
-                data: [{{ $totalPns }}, {{ $totalPppk }}],
-                backgroundColor: ['#704F38', '#AA8C70'],
-                borderWidth: 0,
-                borderRadius: 4,
-                spacing: 3,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '65%',
-            plugins: {
-                legend: { position: 'bottom' }
-            }
-        }
-    });
-
-    // UPTD Bar Chart
-    new Chart(document.getElementById('chartUptd'), {
-        type: 'bar',
-        data: {
-            labels: {!! json_encode($uptdData->pluck('nama_uptd')->map(fn($n) => str_replace(['UPTD ', 'WS. ', 'W. '], '', $n))) !!},
-            datasets: [
-                {
-                    label: 'PNS',
-                    data: {!! json_encode($uptdData->pluck('pns_count')) !!},
-                    backgroundColor: '#704F38',
-                    borderRadius: 4,
-                    barPercentage: 0.7,
-                },
-                {
-                    label: 'PPPK',
-                    data: {!! json_encode($uptdData->pluck('pppk_count')) !!},
-                    backgroundColor: '#AA8C70',
-                    borderRadius: 4,
-                    barPercentage: 0.7,
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            plugins: {
-                legend: { position: 'bottom' }
-            },
-            scales: {
-                x: {
-                    grid: { display: false },
-                    ticks: { font: { size: 10 } }
-                },
-                y: {
-                    grid: { color: '#EFE9E1' },
-                    beginAtZero: true,
-                    ticks: { stepSize: 20 }
-                }
-            }
-        }
-    });
-
-    // Status Doughnut
-    new Chart(document.getElementById('chartStatus'), {
-        type: 'doughnut',
-        data: {
-            labels: ['Aktif', 'Pensiun'],
-            datasets: [{
-                data: [{{ $totalAktif }}, {{ $totalPensiun }}],
-                backgroundColor: ['#553A26', '#C7AB8E'],
-                borderWidth: 0,
-                borderRadius: 4,
-                spacing: 3,
-            }]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            cutout: '65%',
-            plugins: {
-                legend: { position: 'bottom' }
-            }
-        }
-    });
-});
-</script>
-@endpush

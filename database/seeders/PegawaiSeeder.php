@@ -133,11 +133,11 @@ class PegawaiSeeder extends Seeder
             $tanggalLahir = $this->parseDate($tanggalLahirRaw);
             $umur = $tanggalLahir ? Carbon::parse($tanggalLahir)->age : null;
 
-            // Determine status aktif
+            // Determine status aktif (Batas Usia Pensiun 58 tahun)
             $statusAktif = 'Aktif';
             if (strtolower($statusPns) === 'pensiun') {
                 $statusAktif = 'Pensiun';
-            } elseif ($umur !== null && $umur > 60) {
+            } elseif ($umur !== null && $umur >= 58) {
                 $statusAktif = 'Pensiun';
             }
 

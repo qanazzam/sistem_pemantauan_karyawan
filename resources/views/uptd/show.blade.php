@@ -64,7 +64,7 @@
         <div class="col-lg-4 col-md-6">
             <label class="form-label" style="font-size:12px;font-weight:600;color:var(--text-secondary);">Cari Pegawai</label>
             <div class="position-relative">
-                <input type="text" name="search" class="form-control" placeholder="Nama atau NIK..."
+                <input type="text" name="search" class="form-control" placeholder="Nama, NIP, atau NIK..."
                        value="{{ request('search') }}" style="padding-left:36px;">
                 <i class="bi bi-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;"></i>
             </div>
@@ -109,7 +109,7 @@
                     <tr>
                         <th style="width:50px;">No</th>
                         <th>Nama</th>
-                        <th>NIK</th>
+                        <th>NIP</th>
                         <th>Status</th>
                         <th>Kondisi</th>
                         <th>Kab/Kota</th>

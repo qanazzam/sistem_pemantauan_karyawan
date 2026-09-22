@@ -39,7 +39,7 @@
 
         <div class="detail-info-grid">
             <div class="detail-info-item">
-                <span class="detail-info-label">NIK / KTP</span>
+                <span class="detail-info-label">NIP (atau NIK)</span>
                 <span class="detail-info-value" style="font-family:monospace;">{{ $pegawai->nik ?? '-' }}</span>
             </div>
 
@@ -73,6 +73,58 @@
                 <span class="detail-info-label">Status Aktif</span>
                 <span class="detail-info-value">
                     <span class="badge-custom {{ $pegawai->status_badge_class }}">{{ $pegawai->status_aktif }}</span>
+                </span>
+            </div>
+        </div>
+
+        <hr style="margin:28px 0;border-color:var(--border-color);">
+
+        <div class="d-flex align-items-center justify-content-between mb-3">
+            <h6 style="font-size:13px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.05em;margin:0;">
+                <i class="bi bi-cash-stack me-1 text-primary"></i> Kenaikan Gaji Berkala (KGB)
+            </h6>
+            <span class="badge-custom {{ $pegawai->kgb_badge_class }}">
+                {{ $pegawai->status_kgb }} ({{ $pegawai->sisa_waktu_kgb }})
+            </span>
+        </div>
+
+        <div class="detail-info-grid">
+            <div class="detail-info-item">
+                <span class="detail-info-label">Golongan / Pangkat</span>
+                <span class="detail-info-value fw-bold text-primary">
+                    {{ $pegawai->golongan ?? '-' }}
+                    <span style="font-size:12px;font-weight:normal;color:var(--text-secondary);">({{ $pegawai->status_kepegawaian }})</span>
+                </span>
+            </div>
+
+            <div class="detail-info-item">
+                <span class="detail-info-label">Masa Kerja Golongan (MKG)</span>
+                <span class="detail-info-value">
+                    {{ $pegawai->mkg_tahun ?? 0 }} Tahun {{ $pegawai->mkg_bulan ?? 0 }} Bulan
+                </span>
+            </div>
+
+            <div class="detail-info-item">
+                <span class="detail-info-label">TMT KGB Terakhir</span>
+                <span class="detail-info-value">{{ $pegawai->tmt_kgb_terakhir_formatted }}</span>
+            </div>
+
+            <div class="detail-info-item">
+                <span class="detail-info-label">Jatuh Tempo KGB Berikutnya</span>
+                <span class="detail-info-value fw-bold" style="color:var(--text-primary);">
+                    {{ $pegawai->tmt_kgb_berikutnya_formatted }}
+                </span>
+            </div>
+
+            <div class="detail-info-item">
+                <span class="detail-info-label">Gaji Pokok Terakhir</span>
+                <span class="detail-info-value">{{ $pegawai->gaji_pokok_formatted }}</span>
+            </div>
+
+            <div class="detail-info-item">
+                <span class="detail-info-label">Estimasi Gaji Pokok Baru</span>
+                <span class="detail-info-value fw-bold" style="color:var(--primary);font-size:16px;">
+                    {{ $pegawai->estimasi_gaji_baru_formatted }}
                 </span>
             </div>
         </div>

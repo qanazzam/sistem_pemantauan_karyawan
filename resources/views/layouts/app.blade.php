@@ -6,6 +6,8 @@
     <meta name="description" content="Sistem Pemantauan Pegawai Dinas Pekerjaan Umum Provinsi Sulawesi Selatan">
     <title>@yield('title', 'Dashboard') — SIMPEG PU Sulsel</title>
 
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
     <!-- Bootstrap 5 CSS -->
     <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <!-- Bootstrap Icons -->
@@ -20,11 +22,15 @@
     <!-- Sidebar -->
     <aside class="sidebar" id="sidebar">
         <div class="sidebar-brand">
-            <div class="sidebar-brand-icon">
-                <i class="bi bi-building"></i>
+            <div class="sidebar-brand-wrapper">
+                <div class="sidebar-brand-logo">
+                    <img src="{{ asset('images/logo.png') }}" alt="Logo Pemprov Sulsel" class="sidebar-logo">
+                </div>
+                <div class="sidebar-brand-text">
+                    <h5>SIMPEG PU</h5>
+                    <small>Dinas PU Prov. Sulsel</small>
+                </div>
             </div>
-            <h5>SIMPEG</h5>
-            <small>Dinas PU Prov. Sulawesi Selatan</small>
         </div>
 
         <nav class="sidebar-nav">
@@ -38,9 +44,23 @@
             </div>
 
             <div class="nav-item">
-                <a href="{{ route('pegawai.index') }}" class="nav-link {{ request()->routeIs('pegawai.*') ? 'active' : '' }}">
+                <a href="{{ route('pegawai.index') }}" class="nav-link {{ request()->routeIs('pegawai.index') || request()->routeIs('pegawai.show') ? 'active' : '' }}">
                     <i class="bi bi-people-fill"></i>
                     <span>Data Pegawai</span>
+                </a>
+            </div>
+
+            <div class="nav-item">
+                <a href="{{ route('pegawai.create') }}" class="nav-link {{ request()->routeIs('pegawai.create') ? 'active' : '' }}">
+                    <i class="bi bi-person-plus-fill"></i>
+                    <span>Input Pegawai</span>
+                </a>
+            </div>
+
+            <div class="nav-item">
+                <a href="{{ route('pegawai.import') }}" class="nav-link {{ request()->routeIs('pegawai.import*') ? 'active' : '' }}">
+                    <i class="bi bi-file-earmark-arrow-up-fill"></i>
+                    <span>Import Excel</span>
                 </a>
             </div>
 
@@ -48,6 +68,13 @@
                 <a href="{{ route('uptd.index') }}" class="nav-link {{ request()->routeIs('uptd.*') ? 'active' : '' }}">
                     <i class="bi bi-diagram-3-fill"></i>
                     <span>Unit Kerja (UPTD)</span>
+                </a>
+            </div>
+
+            <div class="nav-item">
+                <a href="{{ route('kgb.index') }}" class="nav-link {{ request()->routeIs('kgb.*') ? 'active' : '' }}">
+                    <i class="bi bi-cash-stack"></i>
+                    <span>Kenaikan Gaji (KGB)</span>
                 </a>
             </div>
 
@@ -104,7 +131,10 @@
 
         <!-- Footer -->
         <footer class="footer">
-            &copy; {{ date('Y') }} Dinas Pekerjaan Umum Provinsi Sulawesi Selatan — Sistem Pemantauan Pegawai
+            <div class="d-flex align-items-center justify-content-center gap-2">
+                <img src="{{ asset('images/logo.png') }}" alt="Logo Sulsel" style="height: 20px; width: auto; object-fit: contain;">
+                <span>&copy; {{ date('Y') }} Dinas Pekerjaan Umum Provinsi Sulawesi Selatan — Sistem Pemantauan Pegawai</span>
+            </div>
         </footer>
     </main>
 

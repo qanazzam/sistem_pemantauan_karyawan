@@ -49,12 +49,25 @@ class DashboardController extends Controller
             ->limit(5)
             ->get();
 
+        // KGB statistics
+        $totalKgbJatuhTempo = Pegawai::where('status_aktif', 'Aktif')
+            ->whereNotNull('tmt_kgb_berikutnya')
+            ->where('tmt_kgb_berikutnya', '<=', now())
+            ->count();
+        $totalKgbSegera = Pegawai::where('status_aktif', 'Aktif')
+            ->whereNotNull('tmt_kgb_berikutnya')
+            ->where('tmt_kgb_berikutnya', '>', now())
+            ->where('tmt_kgb_berikutnya', '<=', now()->addDays(90))
+            ->count();
+
         return view('dashboard', compact(
             'totalPegawai',
             'totalPns',
             'totalPppk',
             'totalAktif',
             'totalPensiun',
+            'totalKgbJatuhTempo',
+            'totalKgbSegera',
             'uptdData',
             'kabupatenData',
             'recentPegawai'

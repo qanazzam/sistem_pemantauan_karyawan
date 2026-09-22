@@ -5,13 +5,34 @@
 @section('page-subtitle', 'Daftar seluruh pegawai PNS dan PPPK')
 
 @section('content')
+@if(session('success'))
+<div class="alert-custom-success">
+    <i class="bi bi-check-circle-fill fs-5"></i>
+    <div>{!! session('success') !!}</div>
+</div>
+@endif
+
+@if(session('error'))
+<div class="alert-custom-danger">
+    <i class="bi bi-exclamation-triangle-fill fs-5"></i>
+    <div>{!! session('error') !!}</div>
+</div>
+@endif
+
+@if(session('info'))
+<div class="alert-custom-info">
+    <i class="bi bi-info-circle-fill fs-5"></i>
+    <div>{!! session('info') !!}</div>
+</div>
+@endif
+
 <!-- Filter Bar -->
 <form action="{{ route('pegawai.index') }}" method="GET" class="filter-bar mb-4">
     <div class="row g-2 align-items-end">
         <div class="col-lg-3 col-md-6">
             <label class="form-label" style="font-size:12px;font-weight:600;color:var(--text-secondary);">Cari Pegawai</label>
             <div class="position-relative">
-                <input type="text" name="search" class="form-control" placeholder="Nama atau NIK..."
+                <input type="text" name="search" class="form-control" placeholder="Nama, NIP, atau NIK..."
                        value="{{ request('search') }}" style="padding-left:36px;">
                 <i class="bi bi-search" style="position:absolute;left:12px;top:50%;transform:translateY(-50%);color:var(--text-muted);font-size:14px;"></i>
             </div>
@@ -54,12 +75,20 @@
     </div>
 </form>
 
-<!-- Results Info -->
-<div class="d-flex align-items-center justify-content-between mb-3">
+<!-- Results Info & Actions -->
+<div class="d-flex flex-wrap align-items-center justify-content-between gap-3 mb-3">
     <p style="font-size:13.5px;color:var(--text-secondary);margin:0;">
         Menampilkan <strong>{{ $pegawai->firstItem() ?? 0 }}–{{ $pegawai->lastItem() ?? 0 }}</strong> dari
         <strong>{{ number_format($pegawai->total()) }}</strong> pegawai
     </p>
+    <div class="d-flex gap-2">
+        <a href="{{ route('pegawai.import') }}" class="btn-secondary-custom">
+            <i class="bi bi-file-earmark-excel"></i> Import Excel
+        </a>
+        <a href="{{ route('pegawai.create') }}" class="btn-primary-custom">
+            <i class="bi bi-plus-lg"></i> Tambah Pegawai
+        </a>
+    </div>
 </div>
 
 <!-- Table -->
@@ -71,7 +100,7 @@
                     <tr>
                         <th style="width:50px;">No</th>
                         <th>Nama</th>
-                        <th>NIK</th>
+                        <th>NIP</th>
                         <th>Status</th>
                         <th>Kondisi</th>
                         <th>UPTD</th>
