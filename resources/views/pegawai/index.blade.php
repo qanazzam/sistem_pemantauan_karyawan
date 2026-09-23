@@ -106,7 +106,7 @@
                         <th>UPTD</th>
                         <th>Kab/Kota</th>
                         <th>No HP</th>
-                        <th style="width:80px;">Aksi</th>
+                        <th style="width:120px;" class="text-center">Aksi</th>
                     </tr>
                 </thead>
                 <tbody>
@@ -126,10 +126,22 @@
                         </td>
                         <td style="font-size:13px;">{{ $p->kabupaten_kota ?? '-' }}</td>
                         <td style="font-size:12.5px;color:var(--text-secondary);">{{ $p->no_hp ?? '-' }}</td>
-                        <td>
-                            <a href="{{ route('pegawai.show', $p) }}" class="btn-action btn-view" title="Detail">
-                                <i class="bi bi-eye"></i>
-                            </a>
+                        <td class="text-center">
+                            <div class="d-flex align-items-center justify-content-center gap-1">
+                                <a href="{{ route('pegawai.show', $p) }}" class="btn-action btn-view" title="Detail">
+                                    <i class="bi bi-eye"></i>
+                                </a>
+                                <a href="{{ route('pegawai.edit', $p) }}" class="btn-action btn-edit" title="Edit">
+                                    <i class="bi bi-pencil"></i>
+                                </a>
+                                <form action="{{ route('pegawai.destroy', $p) }}" method="POST" class="d-inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus data pegawai {{ $p->nama }}?')">
+                                    @csrf
+                                    @method('DELETE')
+                                    <button type="submit" class="btn-action btn-delete" title="Hapus">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                            </div>
                         </td>
                     </tr>
                     @empty
