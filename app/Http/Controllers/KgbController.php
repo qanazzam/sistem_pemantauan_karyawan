@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Models\Pegawai;
 use App\Models\Uptd;
 use Illuminate\Http\Request;
-use Carbon\Carbon;
 
 class KgbController extends Controller
 {
@@ -41,7 +40,7 @@ class KgbController extends Controller
             $search = trim($request->search);
             $query->where(function ($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")
-                  ->orWhere('nik', 'like', "%{$search}%");
+                    ->orWhere('nik', 'like', "%{$search}%");
             });
         }
 
@@ -65,19 +64,19 @@ class KgbController extends Controller
             switch ($request->status_kgb) {
                 case 'Jatuh Tempo':
                     $query->where('status_aktif', 'Aktif')
-                          ->whereNotNull('tmt_kgb_berikutnya')
-                          ->where('tmt_kgb_berikutnya', '<=', $now);
+                        ->whereNotNull('tmt_kgb_berikutnya')
+                        ->where('tmt_kgb_berikutnya', '<=', $now);
                     break;
                 case 'Segera KGB':
                     $query->where('status_aktif', 'Aktif')
-                          ->whereNotNull('tmt_kgb_berikutnya')
-                          ->where('tmt_kgb_berikutnya', '>', $now)
-                          ->where('tmt_kgb_berikutnya', '<=', $in90Days);
+                        ->whereNotNull('tmt_kgb_berikutnya')
+                        ->where('tmt_kgb_berikutnya', '>', $now)
+                        ->where('tmt_kgb_berikutnya', '<=', $in90Days);
                     break;
                 case 'Akan Datang':
                     $query->where('status_aktif', 'Aktif')
-                          ->whereNotNull('tmt_kgb_berikutnya')
-                          ->where('tmt_kgb_berikutnya', '>', $in90Days);
+                        ->whereNotNull('tmt_kgb_berikutnya')
+                        ->where('tmt_kgb_berikutnya', '>', $in90Days);
                     break;
                 case 'Pensiun':
                     $query->where('status_aktif', 'Pensiun');

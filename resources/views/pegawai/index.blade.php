@@ -30,7 +30,7 @@
 <form action="{{ route('pegawai.index') }}" method="GET" class="filter-bar mb-4">
     <div class="row g-2 align-items-end">
         <div class="col-lg-3 col-md-6">
-            <label class="form-label" style="font-size:12px;font-weight:600;color:var(--text-secondary);">Cari Pegawai</label>
+            <label class="form-label-custom">Cari Pegawai</label>
             <div class="position-relative">
                 <input type="text" name="search" class="form-control" placeholder="Nama, NIP, atau NIK..."
                        value="{{ request('search') }}" style="padding-left:36px;">
@@ -38,7 +38,7 @@
             </div>
         </div>
         <div class="col-lg-2 col-md-3 col-6">
-            <label class="form-label" style="font-size:12px;font-weight:600;color:var(--text-secondary);">Status</label>
+            <label class="form-label-custom">Status Kepegawaian</label>
             <select name="status_kepegawaian" class="form-select">
                 <option value="">Semua Status</option>
                 <option value="PNS" {{ request('status_kepegawaian') == 'PNS' ? 'selected' : '' }}>PNS</option>
@@ -46,7 +46,7 @@
             </select>
         </div>
         <div class="col-lg-2 col-md-3 col-6">
-            <label class="form-label" style="font-size:12px;font-weight:600;color:var(--text-secondary);">Kondisi</label>
+            <label class="form-label-custom">Status Aktif</label>
             <select name="status_aktif" class="form-select">
                 <option value="">Semua Kondisi</option>
                 <option value="Aktif" {{ request('status_aktif') == 'Aktif' ? 'selected' : '' }}>Aktif</option>
@@ -54,7 +54,7 @@
             </select>
         </div>
         <div class="col-lg-2 col-md-4 col-6">
-            <label class="form-label" style="font-size:12px;font-weight:600;color:var(--text-secondary);">Unit Kerja</label>
+            <label class="form-label-custom">Unit Kerja</label>
             <select name="uptd_id" class="form-select">
                 <option value="">Semua UPTD</option>
                 @foreach($uptdList as $uptd)

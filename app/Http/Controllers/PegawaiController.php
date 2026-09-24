@@ -4,13 +4,15 @@ namespace App\Http\Controllers;
 
 use App\Models\Pegawai;
 use App\Models\Uptd;
-use Illuminate\Http\Request;
 use Carbon\Carbon;
-use PhpOffice\PhpSpreadsheet\Spreadsheet;
-use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
+use Illuminate\Http\Request;
+use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
-use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Shared\Date;
+use PhpOffice\PhpSpreadsheet\Spreadsheet;
 use PhpOffice\PhpSpreadsheet\Style\Alignment;
+use PhpOffice\PhpSpreadsheet\Style\Fill;
+use PhpOffice\PhpSpreadsheet\Writer\Xlsx;
 use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PegawaiController extends Controller
@@ -19,12 +21,12 @@ class PegawaiController extends Controller
         'I/a', 'I/b', 'I/c', 'I/d',
         'II/a', 'II/b', 'II/c', 'II/d',
         'III/a', 'III/b', 'III/c', 'III/d',
-        'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e'
+        'IV/a', 'IV/b', 'IV/c', 'IV/d', 'IV/e',
     ];
 
     private array $golonganPppk = [
         'I', 'II', 'III', 'IV', 'V', 'VI', 'VII', 'VIII',
-        'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII'
+        'IX', 'X', 'XI', 'XII', 'XIII', 'XIV', 'XV', 'XVI', 'XVII',
     ];
 
     public function index(Request $request)
@@ -36,7 +38,7 @@ class PegawaiController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")
-                  ->orWhere('nik', 'like', "%{$search}%");
+                    ->orWhere('nik', 'like', "%{$search}%");
             });
         }
 
@@ -83,6 +85,7 @@ class PegawaiController extends Controller
     public function show(Pegawai $pegawai)
     {
         $pegawai->load('uptd');
+
         return view('pegawai.show', compact('pegawai'));
     }
 
@@ -104,7 +107,7 @@ class PegawaiController extends Controller
     public function store(Request $request)
     {
         // If 'nip' input was sent instead of 'nik', merge into 'nik'
-        if ($request->filled('nip') && !$request->filled('nik')) {
+        if ($request->filled('nip') && ! $request->filled('nik')) {
             $request->merge(['nik' => $request->nip]);
         }
 
@@ -140,7 +143,7 @@ class PegawaiController extends Controller
 
         // Calculate age and retirement status
         $umur = null;
-        if (!empty($validated['tanggal_lahir'])) {
+        if (! empty($validated['tanggal_lahir'])) {
             $umur = Carbon::parse($validated['tanggal_lahir'])->age;
         }
 
@@ -152,7 +155,7 @@ class PegawaiController extends Controller
 
         // Calculate next KGB date (+2 years) if not provided
         $tmtKgbBerikutnya = $validated['tmt_kgb_berikutnya'] ?? null;
-        if (!empty($validated['tmt_kgb_terakhir']) && empty($tmtKgbBerikutnya)) {
+        if (! empty($validated['tmt_kgb_terakhir']) && empty($tmtKgbBerikutnya)) {
             $tmtKgbBerikutnya = Carbon::parse($validated['tmt_kgb_terakhir'])->addYears(2)->toDateString();
         }
 
@@ -201,6 +204,7 @@ class PegawaiController extends Controller
     public function importForm()
     {
         $uptdList = Uptd::orderBy('nama_uptd')->get();
+
         return view('pegawai.import', compact('uptdList'));
     }
 
@@ -209,7 +213,7 @@ class PegawaiController extends Controller
      */
     public function downloadTemplate()
     {
-        $spreadsheet = new Spreadsheet();
+        $spreadsheet = new Spreadsheet;
         $sheet = $spreadsheet->getActiveSheet();
         $sheet->setTitle('Template Import Pegawai');
 
@@ -266,14 +270,14 @@ class PegawaiController extends Controller
                 '1982-08-15', 'PNS', 'UPTD WS. JENEBERANG', 'III/c',
                 12, 0, '2024-06-01', 3850000,
                 'SULAWESI SELATAN', 'MAKASSAR', 'PANAKKUKANG', 'PAMPANG',
-                'Jl. Urip Sumoharjo No. 12', '081234567890', 'Jl. Urip Sumoharjo No. 12'
+                'Jl. Urip Sumoharjo No. 12', '081234567890', 'Jl. Urip Sumoharjo No. 12',
             ],
             [
                 'NURHALISA, S.Sos.', '199004222022212005', '7371022204000002',
                 '1990-04-22', 'PPPK', 'UPTD W. POMPENGAN LARONA', 'IX',
                 4, 0, '2024-10-01', 3200000,
                 'SULAWESI SELATAN', 'KOTA PALOPO', 'WARA', 'BOMBON',
-                'Jl. Dr. Ratulangi No. 45', '085299887766', 'Jl. Dr. Ratulangi No. 45'
+                'Jl. Dr. Ratulangi No. 45', '085299887766', 'Jl. Dr. Ratulangi No. 45',
             ],
         ];
 
@@ -323,7 +327,7 @@ class PegawaiController extends Controller
         try {
             $spreadsheet = IOFactory::load($file->getRealPath());
         } catch (\Exception $e) {
-            return redirect()->back()->with('error', 'Gagal membaca berkas Excel: ' . $e->getMessage());
+            return redirect()->back()->with('error', 'Gagal membaca berkas Excel: '.$e->getMessage());
         }
 
         // Cache UPTD records
@@ -370,8 +374,8 @@ class PegawaiController extends Controller
         }
         $message .= '.';
 
-        if (!empty($errors)) {
-            return redirect()->route('pegawai.index')->with('info', $message . ' (Terdapat catatan: ' . implode(', ', array_slice($errors, 0, 3)) . ')');
+        if (! empty($errors)) {
+            return redirect()->route('pegawai.index')->with('info', $message.' (Terdapat catatan: '.implode(', ', array_slice($errors, 0, 3)).')');
         }
 
         return redirect()->route('pegawai.index')->with('success', $message);
@@ -384,7 +388,7 @@ class PegawaiController extends Controller
     {
         $highestRow = $sheet->getHighestRow();
         $highestCol = $sheet->getHighestColumn();
-        $highestColIndex = \PhpOffice\PhpSpreadsheet\Cell\Coordinate::columnIndexFromString($highestCol);
+        $highestColIndex = Coordinate::columnIndexFromString($highestCol);
 
         // Read header row
         $headerRow = [];
@@ -399,9 +403,11 @@ class PegawaiController extends Controller
                 $upper = strtoupper($name);
                 if (isset($headerRow[$upper])) {
                     $col = $headerRow[$upper];
+
                     return trim((string) $sheet->getCellByColumnAndRow($col, $row)->getValue());
                 }
             }
+
             return null;
         };
 
@@ -415,6 +421,7 @@ class PegawaiController extends Controller
 
             if (empty($nama) || empty($nik)) {
                 $skipped++;
+
                 continue;
             }
 
@@ -453,7 +460,7 @@ class PegawaiController extends Controller
 
             // Match UPTD
             $uptd = $this->resolveUptd($uptdRaw, $uptdMap);
-            if (!$uptd) {
+            if (! $uptd) {
                 $uptd = Uptd::first();
             }
 
@@ -498,6 +505,7 @@ class PegawaiController extends Controller
                 } else {
                     $skipped++;
                 }
+
                 continue;
             }
 
@@ -543,14 +551,19 @@ class PegawaiController extends Controller
             $colB = trim((string) $sheet->getCell("B{$row}")->getValue());
             $nik = trim((string) $sheet->getCell("D{$row}")->getValue());
 
-            if (empty($colB) && empty($nik)) continue;
-
-            if (empty($nik) && str_starts_with(strtoupper($colB), 'UPTD')) {
-                $currentUptd = $this->resolveUptd($colB, $uptdMap);
+            if (empty($colB) && empty($nik)) {
                 continue;
             }
 
-            if (empty($nik) || empty($colB) || !$currentUptd) continue;
+            if (empty($nik) && str_starts_with(strtoupper($colB), 'UPTD')) {
+                $currentUptd = $this->resolveUptd($colB, $uptdMap);
+
+                continue;
+            }
+
+            if (empty($nik) || empty($colB) || ! $currentUptd) {
+                continue;
+            }
 
             $tanggalLahir = $this->parseExcelDate($sheet->getCell("E{$row}")->getValue());
             $statusPns = trim((string) $sheet->getCell("F{$row}")->getValue());
@@ -590,6 +603,7 @@ class PegawaiController extends Controller
                 } else {
                     $skipped++;
                 }
+
                 continue;
             }
 
@@ -633,14 +647,19 @@ class PegawaiController extends Controller
             $colB = trim((string) $sheet->getCell("B{$row}")->getValue());
             $nik = trim((string) $sheet->getCell("D{$row}")->getValue());
 
-            if (empty($colB) && empty($nik)) continue;
-
-            if (empty($nik) && str_starts_with(strtoupper($colB), 'UPTD')) {
-                $currentUptd = $this->resolveUptd($colB, $uptdMap);
+            if (empty($colB) && empty($nik)) {
                 continue;
             }
 
-            if (empty($nik) || empty($colB) || !$currentUptd) continue;
+            if (empty($nik) && str_starts_with(strtoupper($colB), 'UPTD')) {
+                $currentUptd = $this->resolveUptd($colB, $uptdMap);
+
+                continue;
+            }
+
+            if (empty($nik) || empty($colB) || ! $currentUptd) {
+                continue;
+            }
 
             $noKk = trim((string) $sheet->getCell("E{$row}")->getValue());
             $provinsi = trim((string) $sheet->getCell("F{$row}")->getValue());
@@ -656,10 +675,11 @@ class PegawaiController extends Controller
 
             $existing = Pegawai::where('nik', $nik)->first();
             if ($existing) {
-                if (!empty($noKk) && empty($existing->no_kk)) {
+                if (! empty($noKk) && empty($existing->no_kk)) {
                     $existing->update(['no_kk' => $noKk]);
                 }
                 $updated++;
+
                 continue;
             }
 
@@ -695,7 +715,9 @@ class PegawaiController extends Controller
      */
     private function resolveUptd(?string $rawName, array &$uptdMap): ?Uptd
     {
-        if (empty($rawName)) return null;
+        if (empty($rawName)) {
+            return null;
+        }
 
         $rawUpper = strtoupper(trim($rawName));
 
@@ -709,11 +731,24 @@ class PegawaiController extends Controller
             }
         }
 
-        if (str_contains($rawUpper, 'JENEBERANG')) return $uptdMap['UPTD WS. JENEBERANG'] ?? null;
-        if (str_contains($rawUpper, 'POMPENGAN') || str_contains($rawUpper, 'LARONA')) return $uptdMap['UPTD W. POMPENGAN LARONA'] ?? null;
-        if (str_contains($rawUpper, 'SADDANG')) return $uptdMap['UPTD WS. SADDANG'] ?? null;
-        if (str_contains($rawUpper, 'WALANAE') || str_contains($rawUpper, 'CENRANAE')) return $uptdMap['UPTD WS. WALANAE CENRANAE'] ?? null;
-        if (str_contains($rawUpper, 'CPI')) return $uptdMap['UPTD KAWASAN CPI'] ?? null;
+        if (str_contains($rawUpper, 'WALANAE') || str_contains($rawUpper, 'CENRANAE') || str_contains($rawUpper, 'WALCEN')) {
+            return $uptdMap['UPTD WS. WALANAE CENRANAE'] ?? null;
+        }
+        if (str_contains($rawUpper, 'POMPENGAN') || str_contains($rawUpper, 'LARONA') || str_contains($rawUpper, 'POMP')) {
+            return $uptdMap['UPTD W. POMPENGAN LARONA'] ?? null;
+        }
+        if (str_contains($rawUpper, 'SADDANG')) {
+            return $uptdMap['UPTD WS. SADDANG'] ?? null;
+        }
+        if (str_contains($rawUpper, 'JENEBERANG') || str_contains($rawUpper, 'JENEB')) {
+            return $uptdMap['UPTD WS. JENEBERANG'] ?? null;
+        }
+        if (str_contains($rawUpper, 'CPI')) {
+            return $uptdMap['UPTD KAWASAN CPI'] ?? null;
+        }
+        if (str_contains($rawUpper, 'DINAS') || str_contains($rawUpper, 'PUTR') || str_contains($rawUpper, 'SUMBER DAYA AIR')) {
+            return $uptdMap['DINAS SUMBER DAYA AIR, CIPTA KARYA & TATA RUANG'] ?? null;
+        }
 
         return null;
     }
@@ -723,7 +758,9 @@ class PegawaiController extends Controller
      */
     private function parseExcelDate($value): ?string
     {
-        if ($value === null || $value === '') return null;
+        if ($value === null || $value === '') {
+            return null;
+        }
 
         if ($value instanceof \DateTimeInterface) {
             return $value->format('Y-m-d');
@@ -731,7 +768,7 @@ class PegawaiController extends Controller
 
         if (is_numeric($value)) {
             try {
-                return \PhpOffice\PhpSpreadsheet\Shared\Date::excelToDateTimeObject((int) $value)->format('Y-m-d');
+                return Date::excelToDateTimeObject((int) $value)->format('Y-m-d');
             } catch (\Exception $e) {
                 return null;
             }
@@ -754,6 +791,7 @@ class PegawaiController extends Controller
     private function calculateSalaryBump(float $currentSalary, string $kepegawaian): float
     {
         $bump = round($currentSalary * 0.028);
+
         return $currentSalary + $bump;
     }
 
@@ -762,7 +800,9 @@ class PegawaiController extends Controller
      */
     private function updateUptdCounts(?int $uptdId): void
     {
-        if (!$uptdId) return;
+        if (! $uptdId) {
+            return;
+        }
 
         $uptd = Uptd::find($uptdId);
         if ($uptd) {
@@ -773,4 +813,3 @@ class PegawaiController extends Controller
         }
     }
 }
-

@@ -4,7 +4,6 @@ namespace App\Http\Controllers;
 
 use App\Models\Pegawai;
 use App\Models\Uptd;
-use Illuminate\Http\Request;
 
 class DashboardController extends Controller
 {

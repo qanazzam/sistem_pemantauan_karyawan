@@ -1,27 +1,145 @@
-*.log
-.DS_Store
+# ==========================================
+# Environment & Secret Files
+# ==========================================
 .env
-.env.backup
-.env.production
-.phpactor.json
-.phpunit.result.cache
-/.codex
-/.cursor/
-/.idea
-/.nova
-/.phpunit.cache
-/.vscode
-/.zed
+.env.*
+!.env.example
+!.env.*.example
 /auth.json
-/node_modules
-/public/build
-/public/fonts-manifest.dev.json
-/public/hot
-/public/storage
-/storage/*.key
+*.key
+*.pem
+*.crt
+*.cert
+oauth-private.key
+oauth-public.key
+
+# ==========================================
+# Dependencies & Package Managers
+# ==========================================
+/vendor/
+/node_modules/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+composer.phar
+
+# ==========================================
+# Database & Sensitive Data Dumps
+# ==========================================
+*.sqlite
+*.sqlite-journal
+*.sqlite-shm
+*.sqlite-wal
+*.db
+*.sql
+*.sql.gz
+*.dump
+# File Excel/CSV data mentah pegawai (mencegah kebocoran data sensitif seperti NIK & No KK)
+*.xlsx
+*.xls
+*.csv
+~$*.xlsx
+~$*.xls
+
+# ==========================================
+# Storage, Framework Cache & Logs
+# ==========================================
+*.log
+/storage/logs/*.log
 /storage/pail
-/vendor
+/storage/framework/cache/data/*
+/storage/framework/sessions/*
+/storage/framework/views/*
+/storage/framework/testing/*
+/storage/app/*
+!/storage/app/public/.gitignore
+!/storage/app/private/.gitignore
+!/storage/app/.gitignore
+!/storage/**/.gitkeep
+/public/storage
+
+# ==========================================
+# Frontend Build & Dev Artifacts
+# ==========================================
+/public/build
+/public/hot
+/public/fonts-manifest.dev.json
+
+# ==========================================
+# Scratch & Local Development Scripts
+# ==========================================
+/scratch/
+scratch/
+*.scratch.*
+
+# ==========================================
+# Laravel Boost & AI Agent Artifacts
+# ==========================================
+/.agents/
+/.ai/
+/.boost/
+boost.json
+AGENTS.md
+CLAUDE.md
+GEMINI.md
+/.claude/
+/.gemini/
+/.mcp/
+/.mcp.json
+mcp.json
+mcp_config.json
+/.system_generated/
+/.laravel/
+
+# ==========================================
+# IDEs & Code Editors
+# ==========================================
+/.idea
+/.vscode
+/.cursor/
+.cursorrules
+/.windsurf/
+.windsurfrules
+/.clinerules
+/.codex
+/.zed
+/.nova
+/.fleet
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# ==========================================
+# Testing & Code Intelligence Cache
+# ==========================================
+.phpunit.result.cache
+/.phpunit.cache
+.pest/
+.phpactor.json
 _ide_helper.php
+_ide_helper_models.php
+.phpstorm.meta.php
+
+# ==========================================
+# Operating System Files
+# ==========================================
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+[Dd]esktop.ini
+$RECYCLE.BIN/
+*.stackdump
+
+# ==========================================
+# Local Dev Virtualization
+# ==========================================
 Homestead.json
 Homestead.yaml
-Thumbs.db
