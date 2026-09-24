@@ -4,7 +4,6 @@ namespace App\Models;
 
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
-use Carbon\Carbon;
 
 class Pegawai extends Model
 {
@@ -99,9 +98,10 @@ class Pegawai extends Model
      */
     public function getUmurSekarangAttribute(): ?int
     {
-        if (!$this->tanggal_lahir) {
+        if (! $this->tanggal_lahir) {
             return $this->umur;
         }
+
         return $this->tanggal_lahir->age;
     }
 
@@ -114,7 +114,7 @@ class Pegawai extends Model
             return 'Pensiun';
         }
 
-        if (!$this->tmt_kgb_berikutnya) {
+        if (! $this->tmt_kgb_berikutnya) {
             return 'Belum Ada Data';
         }
 
@@ -152,12 +152,13 @@ class Pegawai extends Model
             return 'Pensiun';
         }
 
-        if (!$this->tmt_kgb_berikutnya) {
+        if (! $this->tmt_kgb_berikutnya) {
             return '-';
         }
 
         if ($this->tmt_kgb_berikutnya->isPast()) {
             $days = abs((int) now()->diffInDays($this->tmt_kgb_berikutnya));
+
             return $days === 0 ? 'Hari ini' : "Lewat {$days} hari";
         }
 
@@ -177,7 +178,7 @@ class Pegawai extends Model
     public function getGajiPokokFormattedAttribute(): string
     {
         return $this->gaji_pokok_terakhir
-            ? 'Rp ' . number_format($this->gaji_pokok_terakhir, 0, ',', '.')
+            ? 'Rp '.number_format($this->gaji_pokok_terakhir, 0, ',', '.')
             : '-';
     }
 
@@ -187,7 +188,7 @@ class Pegawai extends Model
     public function getEstimasiGajiBaruFormattedAttribute(): string
     {
         return $this->estimasi_gaji_baru
-            ? 'Rp ' . number_format($this->estimasi_gaji_baru, 0, ',', '.')
+            ? 'Rp '.number_format($this->estimasi_gaji_baru, 0, ',', '.')
             : '-';
     }
 

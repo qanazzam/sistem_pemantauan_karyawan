@@ -55,7 +55,7 @@
 <form action="{{ route('kgb.index') }}" method="GET" class="filter-bar mb-4">
     <div class="row g-2 align-items-end">
         <div class="col-lg-3 col-md-6">
-            <label class="form-label" style="font-size:12px;font-weight:600;color:var(--text-secondary);">Cari Pegawai</label>
+            <label class="form-label-custom">Cari Pegawai</label>
             <div class="position-relative">
                 <input type="text" name="search" class="form-control" placeholder="Nama, NIP, atau NIK..."
                        value="{{ request('search') }}" style="padding-left:36px;">
@@ -63,7 +63,7 @@
             </div>
         </div>
         <div class="col-lg-2 col-md-3 col-6">
-            <label class="form-label" style="font-size:12px;font-weight:600;color:var(--text-secondary);">Status KGB</label>
+            <label class="form-label-custom">Status KGB</label>
             <select name="status_kgb" class="form-select">
                 <option value="">Semua Status KGB</option>
                 <option value="Segera KGB" {{ request('status_kgb') == 'Segera KGB' ? 'selected' : '' }}>Segera KGB (1–3 Bulan)</option>
@@ -73,7 +73,7 @@
             </select>
         </div>
         <div class="col-lg-2 col-md-3 col-6">
-            <label class="form-label" style="font-size:12px;font-weight:600;color:var(--text-secondary);">Jenis Pegawai</label>
+            <label class="form-label-custom">Jenis Pegawai</label>
             <select name="status_kepegawaian" class="form-select">
                 <option value="">PNS & PPPK</option>
                 <option value="PNS" {{ request('status_kepegawaian') == 'PNS' ? 'selected' : '' }}>PNS Saja</option>
@@ -81,7 +81,7 @@
             </select>
         </div>
         <div class="col-lg-2 col-md-3 col-6">
-            <label class="form-label" style="font-size:12px;font-weight:600;color:var(--text-secondary);">Unit Kerja</label>
+            <label class="form-label-custom">Unit Kerja</label>
             <select name="uptd_id" class="form-select">
                 <option value="">Semua UPTD</option>
                 @foreach($uptdList as $u)
@@ -92,7 +92,7 @@
             </select>
         </div>
         <div class="col-lg-1 col-md-3 col-6">
-            <label class="form-label" style="font-size:12px;font-weight:600;color:var(--text-secondary);">Golongan</label>
+            <label class="form-label-custom">Golongan</label>
             <select name="golongan" class="form-select">
                 <option value="">Semua</option>
                 @foreach($golonganList as $gol)

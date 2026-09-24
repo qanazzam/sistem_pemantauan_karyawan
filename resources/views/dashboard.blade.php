@@ -56,20 +56,20 @@
 
 @if($totalKgbSegera > 0 || $totalKgbJatuhTempo > 0)
 <!-- KGB Notice Banner -->
-<div class="card-custom mb-4 animate-in" style="background:#FFFFFF;border-left:4px solid var(--primary);">
-    <div class="p-3 d-flex align-items-center justify-content-between flex-wrap gap-2">
+<div class="notice-banner-kgb mb-4 animate-in">
+    <div class="d-flex align-items-center justify-content-between flex-wrap gap-3">
         <div class="d-flex align-items-center gap-3">
-            <div style="width:40px;height:40px;border-radius:8px;background:var(--brown-subtle);display:flex;align-items:center;justify-content:center;color:var(--primary);font-size:20px;flex-shrink:0;">
+            <div class="notice-icon">
                 <i class="bi bi-bell-fill"></i>
             </div>
             <div>
-                <strong style="font-size:14px;color:var(--text-primary);display:block;">Pemberitahuan Kenaikan Gaji Berkala (KGB)</strong>
-                <span style="font-size:13px;color:var(--text-secondary);">
+                <strong class="d-block text-primary" style="font-size: 14px; font-weight: 700;">Pemberitahuan Kenaikan Gaji Berkala (KGB)</strong>
+                <span class="text-secondary" style="font-size: 13px;">
                     Terdapat <strong>{{ $totalKgbSegera }} pegawai</strong> mendekati jadwal KGB (1–3 bulan) dan <strong>{{ $totalKgbJatuhTempo }} pegawai</strong> telah jatuh tempo perlu penerbitan SK.
                 </span>
             </div>
         </div>
-        <a href="{{ route('kgb.index') }}" class="btn-filter" style="padding:7px 16px;font-size:13px;">
+        <a href="{{ route('kgb.index') }}" class="btn-filter" style="padding: 7px 16px; font-size: 13px;">
             Pantau Jadwal KGB <i class="bi bi-arrow-right"></i>
         </a>
     </div>
