@@ -963,6 +963,30 @@ a {
     border-color: var(--primary);
 }
 
+.btn-edit {
+    background: #EAF2FB;
+    color: #1A5276;
+    border: 1px solid #C4DAEE;
+}
+
+.btn-edit:hover {
+    background: #2980B9;
+    color: #ffffff;
+    border-color: #2980B9;
+}
+
+.btn-delete {
+    background: #FDF2E9;
+    color: #A04000;
+    border: 1px solid #F5CBA7;
+}
+
+.btn-delete:hover {
+    background: #E74C3C;
+    color: #ffffff;
+    border-color: #E74C3C;
+}
+
 /* ---------- Back Button ---------- */
 .btn-back {
     display: inline-flex;

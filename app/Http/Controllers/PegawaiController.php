@@ -199,6 +199,134 @@ class PegawaiController extends Controller
     }
 
     /**
+     * Show the form for editing the specified employee.
+     */
+    public function edit(Pegawai $pegawai)
+    {
+        $uptdList = Uptd::orderBy('nama_uptd')->get();
+        $golonganPns = $this->golonganPns;
+        $golonganPppk = $this->golonganPppk;
+
+        return view('pegawai.edit', compact('pegawai', 'uptdList', 'golonganPns', 'golonganPppk'));
+    }
+
+    /**
+     * Update the specified employee in storage.
+     */
+    public function update(Request $request, Pegawai $pegawai)
+    {
+        if ($request->filled('nip') && !$request->filled('nik')) {
+            $request->merge(['nik' => $request->nip]);
+        }
+
+        $validated = $request->validate([
+            'nama' => 'required|string|max:255',
+            'nik' => 'required|string|max:30|unique:pegawai,nik,' . $pegawai->id,
+            'no_kk' => 'nullable|string|max:30',
+            'tanggal_lahir' => 'nullable|date',
+            'status_kepegawaian' => 'required|in:PNS,PPPK',
+            'status_aktif' => 'nullable|in:Aktif,Pensiun',
+            'uptd_id' => 'required|exists:uptd,id',
+            'golongan' => 'nullable|string|max:20',
+            'mkg_tahun' => 'nullable|integer|min:0|max:50',
+            'mkg_bulan' => 'nullable|integer|min:0|max:11',
+            'tmt_kgb_terakhir' => 'nullable|date',
+            'tmt_kgb_berikutnya' => 'nullable|date',
+            'gaji_pokok_terakhir' => 'nullable|numeric|min:0',
+            'estimasi_gaji_baru' => 'nullable|numeric|min:0',
+            'provinsi' => 'nullable|string|max:100',
+            'kabupaten_kota' => 'nullable|string|max:100',
+            'kecamatan' => 'nullable|string|max:100',
+            'kelurahan' => 'nullable|string|max:100',
+            'alamat_domisili' => 'nullable|string|max:500',
+            'no_hp' => 'nullable|string|max:30',
+            'alamat_ktp' => 'nullable|string|max:500',
+        ], [
+            'nama.required' => 'Nama lengkap pegawai wajib diisi.',
+            'nik.required' => 'NIP (atau NIK) wajib diisi.',
+            'nik.unique' => 'NIP/NIK ini sudah digunakan oleh pegawai lain.',
+            'status_kepegawaian.required' => 'Status kepegawaian (PNS/PPPK) wajib dipilih.',
+            'uptd_id.required' => 'Unit Kerja (UPTD) wajib dipilih.',
+        ]);
+
+        $oldUptdId = $pegawai->uptd_id;
+
+        // Calculate age and retirement status
+        $umur = null;
+        if (!empty($validated['tanggal_lahir'])) {
+            $umur = Carbon::parse($validated['tanggal_lahir'])->age;
+        }
+
+        $statusAktif = $validated['status_aktif'] ?? 'Aktif';
+        if ($umur !== null && $umur >= 58) {
+            $statusAktif = 'Pensiun';
+        }
+
+        // Calculate next KGB date (+2 years) if not provided
+        $tmtKgbBerikutnya = $validated['tmt_kgb_berikutnya'] ?? null;
+        if (!empty($validated['tmt_kgb_terakhir']) && empty($tmtKgbBerikutnya)) {
+            $tmtKgbBerikutnya = Carbon::parse($validated['tmt_kgb_terakhir'])->addYears(2)->toDateString();
+        }
+
+        // Calculate estimated new salary if not provided
+        $gajiPokok = $validated['gaji_pokok_terakhir'] ?? null;
+        $estimasiGajiBaru = $validated['estimasi_gaji_baru'] ?? null;
+        if ($gajiPokok && empty($estimasiGajiBaru)) {
+            $estimasiGajiBaru = $this->calculateSalaryBump((float) $gajiPokok, $validated['status_kepegawaian']);
+        }
+
+        $pegawai->update([
+            'uptd_id' => $validated['uptd_id'],
+            'nama' => $validated['nama'],
+            'nik' => $validated['nik'],
+            'no_kk' => $validated['no_kk'] ?? null,
+            'tanggal_lahir' => $validated['tanggal_lahir'] ?? null,
+            'umur' => $umur,
+            'status_kepegawaian' => $validated['status_kepegawaian'],
+            'status_aktif' => $statusAktif,
+            'golongan' => $validated['golongan'] ?? null,
+            'mkg_tahun' => $validated['mkg_tahun'] ?? 0,
+            'mkg_bulan' => $validated['mkg_bulan'] ?? 0,
+            'tmt_kgb_terakhir' => $validated['tmt_kgb_terakhir'] ?? null,
+            'tmt_kgb_berikutnya' => $tmtKgbBerikutnya,
+            'gaji_pokok_terakhir' => $gajiPokok,
+            'estimasi_gaji_baru' => $estimasiGajiBaru,
+            'provinsi' => $validated['provinsi'] ?? 'SULAWESI SELATAN',
+            'kabupaten_kota' => $validated['kabupaten_kota'] ?? null,
+            'kecamatan' => $validated['kecamatan'] ?? null,
+            'kelurahan' => $validated['kelurahan'] ?? null,
+            'alamat_domisili' => $validated['alamat_domisili'] ?? null,
+            'no_hp' => $validated['no_hp'] ?? null,
+            'alamat_ktp' => $validated['alamat_ktp'] ?? null,
+        ]);
+
+        // Update UPTD counter for old and new UPTD
+        $this->updateUptdCounts($oldUptdId);
+        if ($oldUptdId != $validated['uptd_id']) {
+            $this->updateUptdCounts($validated['uptd_id']);
+        }
+
+        return redirect()->route('pegawai.show', $pegawai)
+            ->with('success', "Data pegawai <strong>{$pegawai->nama}</strong> berhasil diperbarui!");
+    }
+
+    /**
+     * Remove the specified employee from storage.
+     */
+    public function destroy(Pegawai $pegawai)
+    {
+        $nama = $pegawai->nama;
+        $uptdId = $pegawai->uptd_id;
+
+        $pegawai->delete();
+
+        $this->updateUptdCounts($uptdId);
+
+        return redirect()->route('pegawai.index')
+            ->with('success', "Data pegawai <strong>{$nama}</strong> berhasil dihapus.");
+    }
+
+    /**
      * Show the Excel import view.
      */
     public function importForm()
@@ -382,6 +510,28 @@ class PegawaiController extends Controller
     }
 
     /**
+     * Safely extract raw value from a cell, converting RichText to string.
+     */
+    private function getCleanCellValue($cell): mixed
+    {
+        if (!$cell) return null;
+        $val = $cell->getValue();
+        if ($val instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
+            return (string) $val;
+        }
+        return $val;
+    }
+
+    /**
+     * Safely extract cell value as a trimmed string.
+     */
+    private function getCellString($cell): string
+    {
+        $val = $this->getCleanCellValue($cell);
+        return $val !== null ? trim((string) $val) : '';
+    }
+
+    /**
      * Process standard tabular template format (Row 1 = Headers).
      */
     private function processTabularSheet($sheet, array &$uptdMap, bool $updateExisting, int &$imported, int &$updated, int &$skipped, array &$errors): void
@@ -393,7 +543,7 @@ class PegawaiController extends Controller
         // Read header row
         $headerRow = [];
         for ($col = 1; $col <= $highestColIndex; $col++) {
-            $val = trim((string) $sheet->getCellByColumnAndRow($col, 1)->getValue());
+            $val = $this->getCellString($sheet->getCell([$col, 1]));
             $headerRow[strtoupper(str_replace(' ', '_', $val))] = $col;
         }
 
@@ -412,8 +562,11 @@ class PegawaiController extends Controller
         };
 
         for ($row = 2; $row <= $highestRow; $row++) {
-            $nama = $getVal($row, ['NAMA', 'NAMA_PEGAWAI', 'NAMA_LENGKAP']) ?: trim((string) $sheet->getCell("A{$row}")->getValue());
-            $nik = $getVal($row, ['NIP', 'NIP_NIK', 'NIK', 'KTP', 'KTP_NIK', 'NIK_KTP', 'NO_KTP']) ?: trim((string) $sheet->getCell("B{$row}")->getValue());
+            $namaVal = $getVal($row, ['NAMA', 'NAMA_PEGAWAI', 'NAMA_LENGKAP']) ?? $this->getCleanCellValue($sheet->getCell("A{$row}"));
+            $nama = $namaVal !== null ? trim((string) $namaVal) : '';
+
+            $nikVal = $getVal($row, ['NIP', 'NIP_NIK', 'NIK', 'KTP', 'KTP_NIK', 'NIK_KTP', 'NO_KTP']) ?? $this->getCleanCellValue($sheet->getCell("B{$row}"));
+            $nik = $nikVal !== null ? trim((string) $nikVal) : '';
 
             if (empty($nama) && empty($nik)) {
                 continue;
@@ -425,22 +578,50 @@ class PegawaiController extends Controller
                 continue;
             }
 
-            $noKk = $getVal($row, ['NO_KK', 'KK', 'KARTU_KELUARGA']) ?: trim((string) $sheet->getCell("C{$row}")->getValue());
-            $tglLahirRaw = $getVal($row, ['TANGGAL_LAHIR', 'TGL_LAHIR']) ?: $sheet->getCell("D{$row}")->getValue();
-            $statusPegawaiRaw = $getVal($row, ['STATUS_KEPEGAWAIAN', 'STATUS', 'JENIS_PEGAWAI']) ?: trim((string) $sheet->getCell("E{$row}")->getValue());
-            $uptdRaw = $getVal($row, ['UNIT_KERJA', 'UPTD', 'NAMA_UPTD']) ?: trim((string) $sheet->getCell("F{$row}")->getValue());
-            $golongan = $getVal($row, ['GOLONGAN', 'GOL', 'PANGKAT']) ?: trim((string) $sheet->getCell("G{$row}")->getValue());
-            $mkgTahun = (int) ($getVal($row, ['MKG_TAHUN', 'MKG_THN', 'MKG']) ?: $sheet->getCell("H{$row}")->getValue());
-            $mkgBulan = (int) ($getVal($row, ['MKG_BULAN', 'MKG_BLN']) ?: $sheet->getCell("I{$row}")->getValue());
-            $tmtKgbRaw = $getVal($row, ['TMT_KGB_TERAKHIR', 'TMT_KGB', 'TMT_TERAKHIR']) ?: $sheet->getCell("J{$row}")->getValue();
-            $gajiPokokRaw = $getVal($row, ['GAJI_POKOK_TERAKHIR', 'GAJI_POKOK', 'GAJI']) ?: $sheet->getCell("K{$row}")->getValue();
-            $provinsi = $getVal($row, ['PROVINSI']) ?: trim((string) $sheet->getCell("L{$row}")->getValue());
-            $kabKota = $getVal($row, ['KABUPATEN_KOTA', 'KABUPATEN', 'KOTA']) ?: trim((string) $sheet->getCell("M{$row}")->getValue());
-            $kecamatan = $getVal($row, ['KECAMATAN']) ?: trim((string) $sheet->getCell("N{$row}")->getValue());
-            $kelurahan = $getVal($row, ['KELURAHAN']) ?: trim((string) $sheet->getCell("O{$row}")->getValue());
-            $alamatDomisili = $getVal($row, ['ALAMAT_DOMISILI', 'ALAMAT']) ?: trim((string) $sheet->getCell("P{$row}")->getValue());
-            $noHp = $getVal($row, ['NO_HP', 'HP', 'TELEPON']) ?: trim((string) $sheet->getCell("Q{$row}")->getValue());
-            $alamatKtp = $getVal($row, ['ALAMAT_KTP']) ?: trim((string) $sheet->getCell("R{$row}")->getValue());
+            $noKkVal = $getVal($row, ['NO_KK', 'KK', 'KARTU_KELUARGA']) ?? $this->getCleanCellValue($sheet->getCell("C{$row}"));
+            $noKk = $noKkVal !== null ? trim((string) $noKkVal) : '';
+
+            $tglLahirRaw = $getVal($row, ['TANGGAL_LAHIR', 'TGL_LAHIR']) ?? $this->getCleanCellValue($sheet->getCell("D{$row}"));
+
+            $statusPegawaiVal = $getVal($row, ['STATUS_KEPEGAWAIAN', 'STATUS', 'JENIS_PEGAWAI']) ?? $this->getCleanCellValue($sheet->getCell("E{$row}"));
+            $statusPegawaiRaw = $statusPegawaiVal !== null ? trim((string) $statusPegawaiVal) : '';
+
+            $uptdVal = $getVal($row, ['UNIT_KERJA', 'UPTD', 'NAMA_UPTD']) ?? $this->getCleanCellValue($sheet->getCell("F{$row}"));
+            $uptdRaw = $uptdVal !== null ? trim((string) $uptdVal) : '';
+
+            $golonganVal = $getVal($row, ['GOLONGAN', 'GOL', 'PANGKAT']) ?? $this->getCleanCellValue($sheet->getCell("G{$row}"));
+            $golongan = $golonganVal !== null ? trim((string) $golonganVal) : '';
+
+            $mkgTahunRaw = $getVal($row, ['MKG_TAHUN', 'MKG_THN', 'MKG']) ?? $this->getCleanCellValue($sheet->getCell("H{$row}"));
+            $mkgTahun = is_numeric($mkgTahunRaw) ? (int) $mkgTahunRaw : 0;
+
+            $mkgBulanRaw = $getVal($row, ['MKG_BULAN', 'MKG_BLN']) ?? $this->getCleanCellValue($sheet->getCell("I{$row}"));
+            $mkgBulan = is_numeric($mkgBulanRaw) ? (int) $mkgBulanRaw : 0;
+
+            $tmtKgbRaw = $getVal($row, ['TMT_KGB_TERAKHIR', 'TMT_KGB', 'TMT_TERAKHIR']) ?? $this->getCleanCellValue($sheet->getCell("J{$row}"));
+
+            $gajiPokokRaw = $getVal($row, ['GAJI_POKOK_TERAKHIR', 'GAJI_POKOK', 'GAJI']) ?? $this->getCleanCellValue($sheet->getCell("K{$row}"));
+
+            $provinsiVal = $getVal($row, ['PROVINSI']) ?? $this->getCleanCellValue($sheet->getCell("L{$row}"));
+            $provinsi = $provinsiVal !== null ? trim((string) $provinsiVal) : '';
+
+            $kabKotaVal = $getVal($row, ['KABUPATEN_KOTA', 'KABUPATEN', 'KOTA']) ?? $this->getCleanCellValue($sheet->getCell("M{$row}"));
+            $kabKota = $kabKotaVal !== null ? trim((string) $kabKotaVal) : '';
+
+            $kecamatanVal = $getVal($row, ['KECAMATAN']) ?? $this->getCleanCellValue($sheet->getCell("N{$row}"));
+            $kecamatan = $kecamatanVal !== null ? trim((string) $kecamatanVal) : '';
+
+            $kelurahanVal = $getVal($row, ['KELURAHAN']) ?? $this->getCleanCellValue($sheet->getCell("O{$row}"));
+            $kelurahan = $kelurahanVal !== null ? trim((string) $kelurahanVal) : '';
+
+            $alamatDomisiliVal = $getVal($row, ['ALAMAT_DOMISILI', 'ALAMAT']) ?? $this->getCleanCellValue($sheet->getCell("P{$row}"));
+            $alamatDomisili = $alamatDomisiliVal !== null ? trim((string) $alamatDomisiliVal) : '';
+
+            $noHpVal = $getVal($row, ['NO_HP', 'HP', 'TELEPON']) ?? $this->getCleanCellValue($sheet->getCell("Q{$row}"));
+            $noHp = $noHpVal !== null ? trim((string) $noHpVal) : '';
+
+            $alamatKtpVal = $getVal($row, ['ALAMAT_KTP']) ?? $this->getCleanCellValue($sheet->getCell("R{$row}"));
+            $alamatKtp = $alamatKtpVal !== null ? trim((string) $alamatKtpVal) : '';
 
             // Parse status kepegawaian
             $kepegawaian = 'PNS';
@@ -548,8 +729,8 @@ class PegawaiController extends Controller
         $currentUptd = null;
 
         for ($row = 3; $row <= $maxRow; $row++) {
-            $colB = trim((string) $sheet->getCell("B{$row}")->getValue());
-            $nik = trim((string) $sheet->getCell("D{$row}")->getValue());
+            $colB = $this->getCellString($sheet->getCell("B{$row}"));
+            $nik = $this->getCellString($sheet->getCell("D{$row}"));
 
             if (empty($colB) && empty($nik)) {
                 continue;
@@ -565,16 +746,16 @@ class PegawaiController extends Controller
                 continue;
             }
 
-            $tanggalLahir = $this->parseExcelDate($sheet->getCell("E{$row}")->getValue());
-            $statusPns = trim((string) $sheet->getCell("F{$row}")->getValue());
-            $provinsi = trim((string) $sheet->getCell("G{$row}")->getValue());
-            $kabKota = trim((string) $sheet->getCell("H{$row}")->getValue());
-            $kelurahan = trim((string) $sheet->getCell("I{$row}")->getValue());
-            $kecamatan = trim((string) $sheet->getCell("J{$row}")->getValue());
-            $alamat = trim((string) $sheet->getCell("K{$row}")->getValue());
-            $noHp = trim((string) $sheet->getCell("L{$row}")->getValue());
-            $statusPegawai = trim((string) $sheet->getCell("M{$row}")->getValue());
-            $alamatKtp = trim((string) $sheet->getCell("N{$row}")->getValue());
+            $tanggalLahir = $this->parseExcelDate($this->getCleanCellValue($sheet->getCell("E{$row}")));
+            $statusPns = $this->getCellString($sheet->getCell("F{$row}"));
+            $provinsi = $this->getCellString($sheet->getCell("G{$row}"));
+            $kabKota = $this->getCellString($sheet->getCell("H{$row}"));
+            $kelurahan = $this->getCellString($sheet->getCell("I{$row}"));
+            $kecamatan = $this->getCellString($sheet->getCell("J{$row}"));
+            $alamat = $this->getCellString($sheet->getCell("K{$row}"));
+            $noHp = $this->getCellString($sheet->getCell("L{$row}"));
+            $statusPegawai = $this->getCellString($sheet->getCell("M{$row}"));
+            $alamatKtp = $this->getCellString($sheet->getCell("N{$row}"));
 
             $umur = $tanggalLahir ? Carbon::parse($tanggalLahir)->age : null;
             $statusAktif = (strtolower($statusPns) === 'pensiun' || ($umur !== null && $umur >= 58)) ? 'Pensiun' : 'Aktif';
@@ -644,8 +825,8 @@ class PegawaiController extends Controller
         $currentUptd = null;
 
         for ($row = 3; $row <= $maxRow; $row++) {
-            $colB = trim((string) $sheet->getCell("B{$row}")->getValue());
-            $nik = trim((string) $sheet->getCell("D{$row}")->getValue());
+            $colB = $this->getCellString($sheet->getCell("B{$row}"));
+            $nik = $this->getCellString($sheet->getCell("D{$row}"));
 
             if (empty($colB) && empty($nik)) {
                 continue;
@@ -661,15 +842,15 @@ class PegawaiController extends Controller
                 continue;
             }
 
-            $noKk = trim((string) $sheet->getCell("E{$row}")->getValue());
-            $provinsi = trim((string) $sheet->getCell("F{$row}")->getValue());
-            $kabKota = trim((string) $sheet->getCell("G{$row}")->getValue());
-            $kelurahan = trim((string) $sheet->getCell("H{$row}")->getValue());
-            $kecamatan = trim((string) $sheet->getCell("I{$row}")->getValue());
-            $alamat = trim((string) $sheet->getCell("J{$row}")->getValue());
-            $noHp = trim((string) $sheet->getCell("K{$row}")->getValue());
-            $statusPegawai = trim((string) $sheet->getCell("L{$row}")->getValue());
-            $alamatKtp = trim((string) $sheet->getCell("M{$row}")->getValue());
+            $noKk = $this->getCellString($sheet->getCell("E{$row}"));
+            $provinsi = $this->getCellString($sheet->getCell("F{$row}"));
+            $kabKota = $this->getCellString($sheet->getCell("G{$row}"));
+            $kelurahan = $this->getCellString($sheet->getCell("H{$row}"));
+            $kecamatan = $this->getCellString($sheet->getCell("I{$row}"));
+            $alamat = $this->getCellString($sheet->getCell("J{$row}"));
+            $noHp = $this->getCellString($sheet->getCell("K{$row}"));
+            $statusPegawai = $this->getCellString($sheet->getCell("L{$row}"));
+            $alamatKtp = $this->getCellString($sheet->getCell("M{$row}"));
 
             $kepegawaian = (strtoupper($statusPegawai) === 'PPPK' || strtoupper($statusPegawai) === 'P3K') ? 'PPPK' : 'PNS';
 

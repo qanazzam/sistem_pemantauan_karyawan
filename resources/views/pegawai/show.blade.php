@@ -5,14 +5,21 @@
 @section('page-subtitle', 'Informasi lengkap data kepegawaian dan riwayat KGB')
 
 @section('content')
-<div class="d-flex align-items-center justify-content-between mb-3">
-    <a href="{{ route('pegawai.index') }}" class="btn-back mb-0">
-        <i class="bi bi-arrow-left"></i> Kembali ke Data Pegawai
+<div class="mb-4 d-flex align-items-center justify-content-between flex-wrap gap-2">
+    <a href="{{ route('pegawai.index') }}" class="btn-back">
+        <i class="bi bi-arrow-left"></i> Kembali ke Daftar
     </a>
     <div class="d-flex gap-2">
-        <button onclick="window.print()" class="btn-secondary-custom" style="padding: 7px 14px; font-size: 13px;">
-            <i class="bi bi-printer"></i> Cetak
-        </button>
+        <a href="{{ route('pegawai.edit', $pegawai) }}" class="btn-primary-custom" style="padding: 6px 16px; font-size:13px;">
+            <i class="bi bi-pencil-square"></i> Edit Data
+        </a>
+        <form action="{{ route('pegawai.destroy', $pegawai) }}" method="POST" class="d-inline" onsubmit="return confirm('Apakah Anda yakin ingin menghapus data pegawai {{ $pegawai->nama }}?')">
+            @csrf
+            @method('DELETE')
+            <button type="submit" class="btn-secondary-custom text-danger" style="padding: 6px 16px; font-size:13px;">
+                <i class="bi bi-trash"></i> Hapus Pegawai
+            </button>
+        </form>
     </div>
 </div>
 
