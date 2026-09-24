@@ -33,21 +33,17 @@
             <div class="flex-grow-1">
                 <div class="detail-name">{{ $pegawai->nama }}</div>
                 <div class="detail-uptd">
-                    <i class="bi bi-building"></i>
                     <span>{{ $pegawai->uptd->nama_uptd ?? 'Tidak ada UPTD' }}</span>
                 </div>
                 <div class="detail-header-badges">
                     <span class="detail-header-badge">
-                        <i class="bi bi-person-badge"></i>
                         {{ $pegawai->status_kepegawaian }}
                     </span>
                     <span class="detail-header-badge">
-                        <i class="bi {{ $pegawai->status_aktif === 'Aktif' ? 'bi-check-circle-fill' : 'bi-hourglass-split' }}"></i>
                         {{ $pegawai->status_aktif }}
                     </span>
                     @if($pegawai->golongan)
                     <span class="detail-header-badge">
-                        <i class="bi bi-award"></i>
                         Golongan {{ $pegawai->golongan }}
                     </span>
                     @endif

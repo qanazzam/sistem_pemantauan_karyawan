@@ -245,7 +245,7 @@
             Batal
         </a>
         <button type="submit" class="btn-primary-custom">
-            <i class="bi bi-check2-circle fs-6"></i> Simpan Perubahan
+            Simpan Perubahan
         </button>
     </div>
 </form>
