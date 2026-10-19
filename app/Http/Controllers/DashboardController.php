@@ -9,6 +9,8 @@ class DashboardController extends Controller
 {
     public function index()
     {
+        Pegawai::perbaruiJadwalKgb();
+
         // Total statistics
         $totalPegawai = Pegawai::count();
         $totalPns = Pegawai::whereIn('status_kepegawaian', Pegawai::GROUP_PNS)->count();

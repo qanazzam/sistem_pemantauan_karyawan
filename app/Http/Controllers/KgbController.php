@@ -13,6 +13,9 @@ class KgbController extends Controller
      */
     public function index(Request $request)
     {
+        // Majukan jadwal KGB (berbasis TMT pengangkatan dari NIP) yang sudah lewat
+        Pegawai::perbaruiJadwalKgb();
+
         $now = now();
         $in90Days = now()->addDays(90);
 

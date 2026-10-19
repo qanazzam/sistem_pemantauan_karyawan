@@ -2,7 +2,7 @@
 
 @section('title', 'Kenaikan Gaji Berkala (KGB)')
 @section('page-title', 'Kenaikan Gaji Berkala (KGB)')
-@section('page-subtitle', 'Jadwal dan pemantauan berkala 2 tahunan bagi pegawai PNS & PPPK')
+@section('page-subtitle', 'Jadwal KGB 2 tahunan dihitung dari TMT pengangkatan (berdasarkan NIP)')
 
 @section('content')
 <!-- Stat Cards KGB -->
@@ -75,9 +75,11 @@
         <div class="col-lg-2 col-md-3 col-6">
             <label class="form-label-custom">Jenis Pegawai</label>
             <select name="status_kepegawaian" class="form-select">
-                <option value="">PNS & PPPK</option>
-                <option value="PNS" {{ request('status_kepegawaian') == 'PNS' ? 'selected' : '' }}>PNS Saja</option>
-                <option value="PPPK" {{ request('status_kepegawaian') == 'PPPK' ? 'selected' : '' }}>PPPK Saja</option>
+                <option value="">Semua Jenis</option>
+                <option value="PNS" {{ request('status_kepegawaian') == 'PNS' ? 'selected' : '' }}>PNS</option>
+                <option value="ASN" {{ request('status_kepegawaian') == 'ASN' ? 'selected' : '' }}>ASN</option>
+                <option value="PPPK" {{ request('status_kepegawaian') == 'PPPK' ? 'selected' : '' }}>PPPK</option>
+                <option value="PPPK PW" {{ request('status_kepegawaian') == 'PPPK PW' ? 'selected' : '' }}>PPPK PW</option>
             </select>
         </div>
         <div class="col-lg-2 col-md-3 col-6">
@@ -120,7 +122,7 @@
         <strong>{{ number_format($pegawai->total()) }}</strong> pegawai
     </p>
     <div class="d-flex align-items-center gap-2">
-        <span style="font-size:12px;color:var(--text-muted);">Siklus KGB: <strong>2 Tahun Sekali</strong> (PP No. 5/2024 & PermenPAN-RB 7/2023)</span>
+        <span style="font-size:12px;color:var(--text-muted);">Siklus KGB: <strong>2 Tahun Sekali</strong> sejak TMT pengangkatan (digit 9–14 NIP)</span>
     </div>
 </div>
 
@@ -134,12 +136,11 @@
                         <th style="width:50px;">No</th>
                         <th>Pegawai</th>
                         <th>Status / Gol</th>
-                        <th>MKG</th>
+                        <th>TMT Pengangkatan</th>
                         <th>Unit Kerja</th>
-                        <th>TMT Terakhir</th>
-                        <th>Jatuh Tempo KGB</th>
+                        <th>KGB Terakhir</th>
+                        <th>KGB Berikutnya</th>
                         <th>Status & Sisa Waktu</th>
-                        <th>Estimasi Gaji Pokok</th>
                         <th style="width:70px;" class="text-center">Aksi</th>
                     </tr>
                 </thead>
@@ -160,7 +161,17 @@
                             <span class="badge-custom badge-pns">{{ $p->golongan ?? '-' }}</span>
                         </td>
                         <td style="font-size:13px;color:var(--text-secondary);">
-                            {{ $p->mkg_tahun ?? 0 }} Thn {{ $p->mkg_bulan ?? 0 }} Bln
+                            @if($p->tmt_pengangkatan)
+                                <div style="color:var(--text-primary);font-weight:600;">
+                                    {{ $p->tmt_pengangkatan->locale('id')->translatedFormat('F Y') }}
+                                    @if($p->tmt_perkiraan)
+                                        <span class="badge bg-light text-muted border ms-1" style="font-size:10px;font-weight:500;" title="Bulan TMT diperkirakan Januari karena kode NIP 21">perkiraan</span>
+                                    @endif
+                                </div>
+                                <small style="font-size:11.5px;">Masa kerja {{ $p->masa_kerja }}</small>
+                            @else
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size:11px;" title="NIP tidak valid atau kosong">NIP tidak valid</span>
+                            @endif
                         </td>
                         <td style="font-size:12.5px;color:var(--text-secondary);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
                             {{ $p->uptd->nama_uptd ?? '-' }}
@@ -192,18 +203,6 @@
                                 {{ $p->sisa_waktu_kgb }}
                             </div>
                         </td>
-                        <td>
-                            @if($p->estimasi_gaji_baru)
-                                <div style="font-size:13px;font-weight:700;color:var(--primary);">
-                                    {{ $p->estimasi_gaji_baru_formatted }}
-                                </div>
-                                <small style="font-size:11px;color:var(--text-muted);text-decoration:line-through;">
-                                    {{ $p->gaji_pokok_formatted }}
-                                </small>
-                            @else
-                                <span class="text-muted">-</span>
-                            @endif
-                        </td>
                         <td class="text-center">
                             <a href="{{ route('pegawai.show', $p) }}" class="btn-action btn-view" title="Detail Pegawai">
                                 <i class="bi bi-eye"></i>
@@ -212,7 +211,7 @@
                     </tr>
                     @empty
                     <tr>
-                        <td colspan="10">
+                        <td colspan="9">
                             <div class="empty-state">
                                 <i class="bi bi-search"></i>
                                 <h5>Data KGB tidak ditemukan</h5>

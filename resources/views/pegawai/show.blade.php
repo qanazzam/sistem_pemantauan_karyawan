@@ -132,33 +132,33 @@
                     </div>
 
                     <div class="detail-info-item" style="background:#ffffff;">
-                        <span class="detail-info-label">Masa Kerja Golongan (MKG)</span>
+                        <span class="detail-info-label">TMT Pengangkatan (dari NIP)</span>
                         <span class="detail-info-value">
-                            {{ $pegawai->mkg_tahun ?? 0 }} Tahun {{ $pegawai->mkg_bulan ?? 0 }} Bulan
+                            @if($pegawai->tmt_pengangkatan)
+                                {{ $pegawai->tmt_pengangkatan->locale('id')->translatedFormat('F Y') }}
+                                @if($pegawai->tmt_perkiraan)
+                                    <span class="badge bg-light text-muted border ms-1" style="font-size:11px;font-weight:normal;" title="Bulan TMT diperkirakan Januari (kode NIP 21)">(perkiraan)</span>
+                                @endif
+                            @else
+                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size:11px;">NIP tidak valid</span>
+                            @endif
                         </span>
                     </div>
 
                     <div class="detail-info-item" style="background:#ffffff;">
-                        <span class="detail-info-label">TMT KGB Terakhir</span>
+                        <span class="detail-info-label">Masa Kerja</span>
+                        <span class="detail-info-value">{{ $pegawai->masa_kerja }}</span>
+                    </div>
+
+                    <div class="detail-info-item" style="background:#ffffff;">
+                        <span class="detail-info-label">KGB Terakhir</span>
                         <span class="detail-info-value">{{ $pegawai->tmt_kgb_terakhir_formatted }}</span>
                     </div>
 
                     <div class="detail-info-item" style="background:#ffffff; border-color: var(--primary);">
-                        <span class="detail-info-label text-primary">Jatuh Tempo KGB Berikutnya</span>
+                        <span class="detail-info-label text-primary">KGB Berikutnya</span>
                         <span class="detail-info-value text-primary fw-bold">
                             {{ $pegawai->tmt_kgb_berikutnya_formatted }}
-                        </span>
-                    </div>
-
-                    <div class="detail-info-item" style="background:#ffffff;">
-                        <span class="detail-info-label">Gaji Pokok Terakhir</span>
-                        <span class="detail-info-value">{{ $pegawai->gaji_pokok_formatted }}</span>
-                    </div>
-
-                    <div class="detail-info-item" style="background:#ffffff; border-color: var(--primary);">
-                        <span class="detail-info-label text-primary">Estimasi Gaji Pokok Baru</span>
-                        <span class="detail-info-value text-primary fw-bold" style="font-size: 16px;">
-                            {{ $pegawai->estimasi_gaji_baru_formatted }}
                         </span>
                     </div>
                 </div>

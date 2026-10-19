@@ -2,6 +2,7 @@
 
 namespace App\Models;
 
+use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
 
@@ -23,6 +24,7 @@ class Pegawai extends Model
         'tanggal_lahir',
         'umur',
         'status_kepegawaian',
+        'tmt_pengangkatan',
         'status_aktif',
         'golongan',
         'mkg_tahun',
@@ -42,11 +44,116 @@ class Pegawai extends Model
 
     protected $casts = [
         'tanggal_lahir' => 'date',
+        'tmt_pengangkatan' => 'date',
         'tmt_kgb_terakhir' => 'date',
         'tmt_kgb_berikutnya' => 'date',
         'gaji_pokok_terakhir' => 'float',
         'estimasi_gaji_baru' => 'float',
     ];
+
+    /**
+     * Siklus KGB (tahun) bagi PNS & PPPK.
+     */
+    public const SIKLUS_KGB_TAHUN = 2;
+
+    protected static function booted(): void
+    {
+        // Setiap kali disimpan, hitung ulang TMT pengangkatan & jadwal KGB dari NIP.
+        static::saving(function (Pegawai $p) {
+            $p->hitungJadwalKgb();
+        });
+    }
+
+    /**
+     * Ambil TMT pengangkatan dari NIP 18 digit.
+     * Format NIP PNS : YYYYMMDD (lahir) + YYYYMM (TMT CPNS) + G (jenis kelamin) + NNN (urut).
+     * Format NIP PPPK: YYYYMMDD (lahir) + YYYY (tahun TMT) + "21" (kode PPPK) + G + NNN.
+     *   Bulan TMT tidak tercantum, sehingga dianggap Januari (perkiraan).
+     */
+    public static function tmtDariNip(?string $nip): ?Carbon
+    {
+        $nip = preg_replace('/\D/', '', (string) $nip);
+        if (strlen($nip) !== 18) {
+            return null;
+        }
+
+        $tahun = (int) substr($nip, 8, 4);
+        $bulan = (int) substr($nip, 12, 2);
+        $lahir = (int) substr($nip, 0, 4);
+
+        if ($bulan === 21) {
+            $bulan = 1; // NIP PPPK: bulan TMT tidak diketahui
+        }
+
+        if ($bulan < 1 || $bulan > 12 || $tahun < 1960 || $tahun > (int) now()->year || $tahun - $lahir < 17) {
+            return null;
+        }
+
+        return Carbon::create($tahun, $bulan, 1)->startOfDay();
+    }
+
+    /**
+     * True jika bulan TMT hanya perkiraan (NIP berformat PPPK kode "21").
+     */
+    public function getTmtPerkiraanAttribute(): bool
+    {
+        $nip = preg_replace('/\D/', '', (string) $this->nik);
+
+        return strlen($nip) === 18 && substr($nip, 12, 2) === '21';
+    }
+
+    /**
+     * Hitung KGB terakhir & berikutnya: setiap 2 tahun sejak TMT pengangkatan.
+     * KGB pada bulan berjalan tetap ditampilkan (status "Jatuh Tempo") hingga bulan berganti.
+     */
+    public function hitungJadwalKgb(): void
+    {
+        $tmt = self::tmtDariNip($this->nik);
+        if (! $tmt) {
+            // NIP tidak valid: jadwal KGB dikosongkan agar NIP diperbaiki
+            $this->tmt_pengangkatan = null;
+            $this->tmt_kgb_terakhir = null;
+            $this->tmt_kgb_berikutnya = null;
+
+            return;
+        }
+
+        $this->tmt_pengangkatan = $tmt;
+        $batas = now()->startOfMonth();
+
+        $n = 1;
+        while ($tmt->copy()->addYears($n * self::SIKLUS_KGB_TAHUN)->lt($batas)) {
+            $n++;
+        }
+
+        $this->tmt_kgb_berikutnya = $tmt->copy()->addYears($n * self::SIKLUS_KGB_TAHUN);
+        $this->tmt_kgb_terakhir = $n > 1 ? $tmt->copy()->addYears(($n - 1) * self::SIKLUS_KGB_TAHUN) : null;
+    }
+
+    /**
+     * Majukan jadwal KGB yang sudah lewat bulan (dipanggil saat halaman dibuka).
+     */
+    public static function perbaruiJadwalKgb(): void
+    {
+        static::whereNotNull('tmt_pengangkatan')
+            ->where(fn ($q) => $q->whereNull('tmt_kgb_berikutnya')
+                ->orWhere('tmt_kgb_berikutnya', '<', now()->startOfMonth()->toDateString()))
+            ->each(fn (Pegawai $p) => $p->save());
+    }
+
+    /**
+     * Masa kerja sejak TMT pengangkatan.
+     */
+    public function getMasaKerjaAttribute(): string
+    {
+        if (! $this->tmt_pengangkatan) {
+            return '-';
+        }
+
+        $d = $this->tmt_pengangkatan->diff(now());
+
+        return "{$d->y} Thn {$d->m} Bln";
+    }
 
     /**
      * NIP / NIK alias accessor and mutator.
