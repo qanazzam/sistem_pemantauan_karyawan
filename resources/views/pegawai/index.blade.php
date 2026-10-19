@@ -43,6 +43,8 @@
                 <option value="">Semua Status</option>
                 <option value="PNS" {{ request('status_kepegawaian') == 'PNS' ? 'selected' : '' }}>PNS</option>
                 <option value="PPPK" {{ request('status_kepegawaian') == 'PPPK' ? 'selected' : '' }}>PPPK</option>
+                <option value="PPPK PW" {{ request('status_kepegawaian') == 'PPPK PW' ? 'selected' : '' }}>PPPK PW</option>
+                <option value="ASN" {{ request('status_kepegawaian') == 'ASN' ? 'selected' : '' }}>ASN</option>
             </select>
         </div>
         <div class="col-lg-2 col-md-3 col-6">

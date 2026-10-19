@@ -86,6 +86,8 @@
                     <select name="status_kepegawaian" id="selectKepegawaian" class="form-select @error('status_kepegawaian') is-invalid @enderror" required>
                         <option value="PNS" {{ old('status_kepegawaian', $pegawai->status_kepegawaian) == 'PNS' ? 'selected' : '' }}>PNS</option>
                         <option value="PPPK" {{ old('status_kepegawaian', $pegawai->status_kepegawaian) == 'PPPK' ? 'selected' : '' }}>PPPK</option>
+                        <option value="PPPK PW" {{ old('status_kepegawaian', $pegawai->status_kepegawaian) == 'PPPK PW' ? 'selected' : '' }}>PPPK PW</option>
+                        <option value="ASN" {{ old('status_kepegawaian', $pegawai->status_kepegawaian) == 'ASN' ? 'selected' : '' }}>ASN</option>
                     </select>
                 </div>
 

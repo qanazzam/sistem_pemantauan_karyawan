@@ -116,7 +116,7 @@ class PegawaiController extends Controller
             'nik' => 'required|string|max:30|unique:pegawai,nik',
             'no_kk' => 'nullable|string|max:30',
             'tanggal_lahir' => 'nullable|date',
-            'status_kepegawaian' => 'required|in:PNS,PPPK',
+            'status_kepegawaian' => 'required|in:PNS,PPPK,ASN,PPPK PW',
             'status_aktif' => 'nullable|in:Aktif,Pensiun',
             'uptd_id' => 'required|exists:uptd,id',
             'golongan' => 'nullable|string|max:20',
@@ -224,7 +224,7 @@ class PegawaiController extends Controller
             'nik' => 'required|string|max:30|unique:pegawai,nik,' . $pegawai->id,
             'no_kk' => 'nullable|string|max:30',
             'tanggal_lahir' => 'nullable|date',
-            'status_kepegawaian' => 'required|in:PNS,PPPK',
+            'status_kepegawaian' => 'required|in:PNS,PPPK,ASN,PPPK PW',
             'status_aktif' => 'nullable|in:Aktif,Pensiun',
             'uptd_id' => 'required|exists:uptd,id',
             'golongan' => 'nullable|string|max:20',
@@ -988,8 +988,8 @@ class PegawaiController extends Controller
         $uptd = Uptd::find($uptdId);
         if ($uptd) {
             $uptd->update([
-                'jumlah_pns' => $uptd->pegawai()->where('status_kepegawaian', 'PNS')->count(),
-                'jumlah_pppk' => $uptd->pegawai()->where('status_kepegawaian', 'PPPK')->count(),
+                'jumlah_pns' => $uptd->pegawai()->whereIn('status_kepegawaian', Pegawai::GROUP_PNS)->count(),
+                'jumlah_pppk' => $uptd->pegawai()->whereIn('status_kepegawaian', Pegawai::GROUP_PPPK)->count(),
             ]);
         }
     }

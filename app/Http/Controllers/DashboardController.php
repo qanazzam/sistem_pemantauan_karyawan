@@ -11,8 +11,8 @@ class DashboardController extends Controller
     {
         // Total statistics
         $totalPegawai = Pegawai::count();
-        $totalPns = Pegawai::where('status_kepegawaian', 'PNS')->count();
-        $totalPppk = Pegawai::where('status_kepegawaian', 'PPPK')->count();
+        $totalPns = Pegawai::whereIn('status_kepegawaian', Pegawai::GROUP_PNS)->count();
+        $totalPppk = Pegawai::whereIn('status_kepegawaian', Pegawai::GROUP_PPPK)->count();
         $totalAktif = Pegawai::where('status_aktif', 'Aktif')->count();
         $totalPensiun = Pegawai::where('status_aktif', 'Pensiun')->count();
 
@@ -20,10 +20,10 @@ class DashboardController extends Controller
         $uptdData = Uptd::withCount([
             'pegawai',
             'pegawai as pns_count' => function ($query) {
-                $query->where('status_kepegawaian', 'PNS');
+                $query->whereIn('status_kepegawaian', Pegawai::GROUP_PNS);
             },
             'pegawai as pppk_count' => function ($query) {
-                $query->where('status_kepegawaian', 'PPPK');
+                $query->whereIn('status_kepegawaian', Pegawai::GROUP_PPPK);
             },
             'pegawai as aktif_count' => function ($query) {
                 $query->where('status_aktif', 'Aktif');

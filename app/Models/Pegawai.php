@@ -9,6 +9,12 @@ class Pegawai extends Model
 {
     protected $table = 'pegawai';
 
+    /**
+     * Pengelompokan status untuk rekap jumlah PNS & PPPK.
+     */
+    public const GROUP_PNS = ['PNS', 'ASN'];
+    public const GROUP_PPPK = ['PPPK', 'PPPK PW'];
+
     protected $fillable = [
         'uptd_id',
         'nama',
@@ -210,8 +216,8 @@ class Pegawai extends Model
     public function getKepegawaianBadgeClassAttribute(): string
     {
         return match ($this->status_kepegawaian) {
-            'PNS' => 'badge-pns',
-            'PPPK' => 'badge-pppk',
+            'PNS', 'ASN' => 'badge-pns',
+            'PPPK', 'PPPK PW' => 'badge-pppk',
             default => 'badge-unknown',
         };
     }

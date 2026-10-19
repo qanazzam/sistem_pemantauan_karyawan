@@ -2,6 +2,7 @@
 
 namespace App\Http\Controllers;
 
+use App\Models\Pegawai;
 use App\Models\Uptd;
 use Illuminate\Http\Request;
 
@@ -12,10 +13,10 @@ class UptdController extends Controller
         $uptdList = Uptd::withCount([
             'pegawai',
             'pegawai as pns_count' => function ($query) {
-                $query->where('status_kepegawaian', 'PNS');
+                $query->whereIn('status_kepegawaian', Pegawai::GROUP_PNS);
             },
             'pegawai as pppk_count' => function ($query) {
-                $query->where('status_kepegawaian', 'PPPK');
+                $query->whereIn('status_kepegawaian', Pegawai::GROUP_PPPK);
             },
             'pegawai as aktif_count' => function ($query) {
                 $query->where('status_aktif', 'Aktif');
@@ -52,8 +53,8 @@ class UptdController extends Controller
 
         $stats = [
             'total' => $uptd->pegawai()->count(),
-            'pns' => $uptd->pegawai()->where('status_kepegawaian', 'PNS')->count(),
-            'pppk' => $uptd->pegawai()->where('status_kepegawaian', 'PPPK')->count(),
+            'pns' => $uptd->pegawai()->whereIn('status_kepegawaian', Pegawai::GROUP_PNS)->count(),
+            'pppk' => $uptd->pegawai()->whereIn('status_kepegawaian', Pegawai::GROUP_PPPK)->count(),
             'aktif' => $uptd->pegawai()->where('status_aktif', 'Aktif')->count(),
             'pensiun' => $uptd->pegawai()->where('status_aktif', 'Pensiun')->count(),
         ];
