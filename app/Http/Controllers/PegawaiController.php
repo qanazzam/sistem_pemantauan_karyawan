@@ -346,26 +346,28 @@ class PegawaiController extends Controller
         $sheet->setTitle('Template Import Pegawai');
 
         // Headers
-        // Headers (Kolom B diberi nama NIP, dapat diisi NIP atau NIK)
+        // Kolom B untuk NIP (18 digit), Kolom C untuk NIK (16 digit).
+        // Jika kolom NIP kosong/strip, sistem otomatis memakai data dari kolom NIK.
         $headers = [
             'A1' => 'NAMA',
             'B1' => 'NIP',
-            'C1' => 'NO_KK',
-            'D1' => 'TANGGAL_LAHIR',
-            'E1' => 'STATUS_KEPEGAWAIAN',
-            'F1' => 'UNIT_KERJA',
-            'G1' => 'GOLONGAN',
-            'H1' => 'MKG_TAHUN',
-            'I1' => 'MKG_BULAN',
-            'J1' => 'TMT_KGB_TERAKHIR',
-            'K1' => 'GAJI_POKOK_TERAKHIR',
-            'L1' => 'PROVINSI',
-            'M1' => 'KABUPATEN_KOTA',
-            'N1' => 'KECAMATAN',
-            'O1' => 'KELURAHAN',
-            'P1' => 'ALAMAT_DOMISILI',
-            'Q1' => 'NO_HP',
-            'R1' => 'ALAMAT_KTP',
+            'C1' => 'NIK',
+            'D1' => 'NO_KK',
+            'E1' => 'TANGGAL_LAHIR',
+            'F1' => 'STATUS_KEPEGAWAIAN',
+            'G1' => 'UNIT_KERJA',
+            'H1' => 'GOLONGAN',
+            'I1' => 'MKG_TAHUN',
+            'J1' => 'MKG_BULAN',
+            'K1' => 'TMT_KGB_TERAKHIR',
+            'L1' => 'GAJI_POKOK_TERAKHIR',
+            'M1' => 'PROVINSI',
+            'N1' => 'KABUPATEN_KOTA',
+            'O1' => 'KECAMATAN',
+            'P1' => 'KELURAHAN',
+            'Q1' => 'ALAMAT_DOMISILI',
+            'R1' => 'NO_HP',
+            'S1' => 'ALAMAT_KTP',
         ];
 
         foreach ($headers as $cell => $val) {
@@ -373,7 +375,7 @@ class PegawaiController extends Controller
         }
 
         // Header Styling
-        $headerRange = 'A1:R1';
+        $headerRange = 'A1:S1';
         $sheet->getStyle($headerRange)->applyFromArray([
             'font' => [
                 'bold' => true,
@@ -391,21 +393,31 @@ class PegawaiController extends Controller
         ]);
         $sheet->getRowDimension(1)->setRowHeight(28);
 
-        // Sample Data Rows (Mendukung NIP 18 digit untuk PNS atau NIP/NIK 16 digit)
+        // Sample Data Rows:
+        // Baris 1: Contoh PNS dengan NIP & NIK lengkap
+        // Baris 2: Contoh pegawai belum ada NIP (NIP kosong, otomatis fallback ke NIK)
+        // Baris 3: Contoh PPPK dengan NIP PPPK & NIK
         $sampleData = [
             [
-                'AHMAD RASYID, S.T.', '198208152005021003', '7371011508000001',
+                'AHMAD RASYID, S.T.', '198208152005021003', '7371011508820001', '7371011508000001',
                 '1982-08-15', 'PNS', 'UPTD WS. JENEBERANG', 'III/c',
                 12, 0, '2024-06-01', 3850000,
                 'SULAWESI SELATAN', 'MAKASSAR', 'PANAKKUKANG', 'PAMPANG',
                 'Jl. Urip Sumoharjo No. 12', '081234567890', 'Jl. Urip Sumoharjo No. 12',
             ],
             [
-                'NURHALISA, S.Sos.', '199004222022212005', '7371022204000002',
+                'NURHALISA, S.Sos.', '', '7371022204900002', '7371022204000002',
                 '1990-04-22', 'PPPK', 'UPTD W. POMPENGAN LARONA', 'IX',
                 4, 0, '2024-10-01', 3200000,
                 'SULAWESI SELATAN', 'KOTA PALOPO', 'WARA', 'BOMBON',
                 'Jl. Dr. Ratulangi No. 45', '085299887766', 'Jl. Dr. Ratulangi No. 45',
+            ],
+            [
+                'MUHAMMAD ILHAM, S.Pd.', '199506122023211004', '7371031206950003', '7371031206000003',
+                '1995-06-12', 'PPPK', 'UPTD WS. CENA RANA', 'IX',
+                2, 0, '2025-03-01', 3200000,
+                'SULAWESI SELATAN', 'BONE', 'TANETE RIATTANG', 'BIRU',
+                'Jl. Merdeka No. 8', '081344556677', 'Jl. Merdeka No. 8',
             ],
         ];
 
@@ -413,14 +425,20 @@ class PegawaiController extends Controller
         foreach ($sampleData as $row) {
             $colLetter = 'A';
             foreach ($row as $val) {
-                $sheet->setCellValue("{$colLetter}{$rowIdx}", $val);
+                $cellCoord = "{$colLetter}{$rowIdx}";
+                // Simpan NIP, NIK, KK, HP sebagai teks eksplisit agar tidak berubah jadi notasi ilmiah di Excel
+                if (in_array($colLetter, ['B', 'C', 'D', 'R'], true)) {
+                    $sheet->setCellValueExplicit($cellCoord, (string) $val, \PhpOffice\PhpSpreadsheet\Cell\DataType::TYPE_STRING);
+                } else {
+                    $sheet->setCellValue($cellCoord, $val);
+                }
                 $colLetter++;
             }
             $rowIdx++;
         }
 
         // Auto-fit columns
-        foreach (range('A', 'R') as $col) {
+        foreach (range('A', 'S') as $col) {
             $sheet->getColumnDimension($col)->setAutoSize(true);
         }
 
@@ -468,6 +486,7 @@ class PegawaiController extends Controller
         $imported = 0;
         $updated = 0;
         $skipped = 0;
+        $fallbackCount = 0;
         $errors = [];
 
         // Determine if file is the multi-sheet official format or tabular format
@@ -477,15 +496,15 @@ class PegawaiController extends Controller
         if ($sheetPppk || $sheetPns) {
             // Process as official Dinas multi-sheet format
             if ($sheetPppk) {
-                $this->processDinasSheet1($sheetPppk, $uptdMap, $updateExisting, $imported, $updated, $skipped);
+                $this->processDinasSheet1($sheetPppk, $uptdMap, $updateExisting, $imported, $updated, $skipped, $fallbackCount);
             }
             if ($sheetPns) {
-                $this->processDinasSheet2($sheetPns, $uptdMap, $updateExisting, $imported, $updated, $skipped);
+                $this->processDinasSheet2($sheetPns, $uptdMap, $updateExisting, $imported, $updated, $skipped, $fallbackCount);
             }
         } else {
             // Process as standard tabular template (Sheet 1)
             $sheet = $spreadsheet->getActiveSheet();
-            $this->processTabularSheet($sheet, $uptdMap, $updateExisting, $imported, $updated, $skipped, $errors);
+            $this->processTabularSheet($sheet, $uptdMap, $updateExisting, $imported, $updated, $skipped, $errors, $fallbackCount);
         }
 
         // Update counts for all UPTD
@@ -497,8 +516,11 @@ class PegawaiController extends Controller
         if ($updated > 0) {
             $message .= ", <strong>{$updated}</strong> data diperbarui";
         }
+        if ($fallbackCount > 0) {
+            $message .= " (Termasuk <strong>{$fallbackCount}</strong> data yang NIP-nya otomatis terisi dari NIK)";
+        }
         if ($skipped > 0) {
-            $message .= ", <strong>{$skipped}</strong> data dilewati (NIP/NIK duplikat)";
+            $message .= ", <strong>{$skipped}</strong> data dilewati (NIP & NIK kosong / duplikat)";
         }
         $message .= '.';
 
@@ -514,11 +536,14 @@ class PegawaiController extends Controller
      */
     private function getCleanCellValue($cell): mixed
     {
-        if (!$cell) return null;
+        if (! $cell) {
+            return null;
+        }
         $val = $cell->getValue();
         if ($val instanceof \PhpOffice\PhpSpreadsheet\RichText\RichText) {
             return (string) $val;
         }
+
         return $val;
     }
 
@@ -528,13 +553,14 @@ class PegawaiController extends Controller
     private function getCellString($cell): string
     {
         $val = $this->getCleanCellValue($cell);
+
         return $val !== null ? trim((string) $val) : '';
     }
 
     /**
      * Process standard tabular template format (Row 1 = Headers).
      */
-    private function processTabularSheet($sheet, array &$uptdMap, bool $updateExisting, int &$imported, int &$updated, int &$skipped, array &$errors): void
+    private function processTabularSheet($sheet, array &$uptdMap, bool $updateExisting, int &$imported, int &$updated, int &$skipped, array &$errors, int &$fallbackCount = 0): void
     {
         $highestRow = $sheet->getHighestRow();
         $highestCol = $sheet->getHighestColumn();
@@ -544,17 +570,34 @@ class PegawaiController extends Controller
         $headerRow = [];
         for ($col = 1; $col <= $highestColIndex; $col++) {
             $val = $this->getCellString($sheet->getCell([$col, 1]));
-            $headerRow[strtoupper(str_replace(' ', '_', $val))] = $col;
+            $valUpper = strtoupper(trim($val));
+            if ($valUpper !== '') {
+                $headerRow[$valUpper] = $col;
+            }
+            $valUnderscore = strtoupper(str_replace([' ', '/', '-', '.', '(', ')'], '_', trim($val)));
+            $valUnderscore = trim($valUnderscore, '_');
+            if ($valUnderscore !== '') {
+                $headerRow[$valUnderscore] = $col;
+            }
         }
 
-        // Helper to get value by possible header names
+        // Helper to get non-empty value by possible header names
         $getVal = function ($row, array $possibleNames) use ($sheet, $headerRow) {
             foreach ($possibleNames as $name) {
-                $upper = strtoupper($name);
-                if (isset($headerRow[$upper])) {
-                    $col = $headerRow[$upper];
+                $upper = strtoupper(trim($name));
+                $col = $headerRow[$upper] ?? null;
+                if (! $col) {
+                    $norm = strtoupper(str_replace([' ', '/', '-', '.', '(', ')'], '_', $upper));
+                    $norm = trim($norm, '_');
+                    $col = $headerRow[$norm] ?? null;
+                }
 
-                    return trim((string) $sheet->getCellByColumnAndRow($col, $row)->getValue());
+                if ($col !== null) {
+                    $val = trim((string) $this->getCleanCellValue($sheet->getCell([$col, $row])));
+                    // Skip if value is completely empty or just a dash placeholder
+                    if ($val !== '' && $val !== '-') {
+                        return $val;
+                    }
                 }
             }
 
@@ -565,8 +608,40 @@ class PegawaiController extends Controller
             $namaVal = $getVal($row, ['NAMA', 'NAMA_PEGAWAI', 'NAMA_LENGKAP']) ?? $this->getCleanCellValue($sheet->getCell("A{$row}"));
             $nama = $namaVal !== null ? trim((string) $namaVal) : '';
 
-            $nikVal = $getVal($row, ['NIP', 'NIP_NIK', 'NIK', 'KTP', 'KTP_NIK', 'NIK_KTP', 'NO_KTP']) ?? $this->getCleanCellValue($sheet->getCell("B{$row}"));
-            $nik = $nikVal !== null ? trim((string) $nikVal) : '';
+            // 1. Ambil nilai NIP khusus
+            $nipVal = $getVal($row, ['NIP', 'NOMOR_INDUK_PEGAWAI', 'NIP_BARU']);
+
+            // 2. Ambil nilai NIK khusus (KTP)
+            $nikVal = $getVal($row, ['NIK', 'KTP', 'NO_KTP', 'NIK_KTP', 'KTP_NIK', 'NOMOR_INDUK_KEPENDUDUKAN']);
+
+            // 3. Ambil jika ada header gabungan
+            $idVal = $getVal($row, ['NIP_NIK', 'NIK_NIP', 'NO_IDENTITAS', 'IDENTITAS', 'ID_PEGAWAI']);
+
+            // Fallback otomatis: Prioritaskan NIP, jika kosong/tidak ada gunakan NIK
+            $nik = null;
+            $usedFallback = false;
+
+            if (! empty($nipVal) && $nipVal !== '-') {
+                $nik = $nipVal;
+            } elseif (! empty($nikVal) && $nikVal !== '-') {
+                $nik = $nikVal;
+                $usedFallback = true;
+            } elseif (! empty($idVal) && $idVal !== '-') {
+                $nik = $idVal;
+            } else {
+                // Fallback berdasarkan letak kolom fisik jika file tanpa header standar
+                $cellB = trim((string) $this->getCleanCellValue($sheet->getCell("B{$row}")));
+                $cellC = trim((string) $this->getCleanCellValue($sheet->getCell("C{$row}")));
+
+                if ($cellB !== '' && $cellB !== '-') {
+                    $nik = $cellB;
+                } elseif ($cellC !== '' && $cellC !== '-' && is_numeric(str_replace([' ', '-'], '', $cellC))) {
+                    $nik = $cellC;
+                    $usedFallback = true;
+                }
+            }
+
+            $nik = $nik !== null ? trim((string) $nik) : '';
 
             if (empty($nama) && empty($nik)) {
                 continue;
@@ -578,49 +653,60 @@ class PegawaiController extends Controller
                 continue;
             }
 
-            $noKkVal = $getVal($row, ['NO_KK', 'KK', 'KARTU_KELUARGA']) ?? $this->getCleanCellValue($sheet->getCell("C{$row}"));
+            if ($usedFallback) {
+                $fallbackCount++;
+            }
+
+            $noKkVal = $getVal($row, ['NO_KK', 'KK', 'KARTU_KELUARGA', 'NO_KARTU_KELUARGA']);
+            if ($noKkVal === null) {
+                if (isset($headerRow['NIK'])) {
+                    $noKkVal = $this->getCleanCellValue($sheet->getCell("D{$row}"));
+                } else {
+                    $noKkVal = $this->getCleanCellValue($sheet->getCell("C{$row}"));
+                }
+            }
             $noKk = $noKkVal !== null ? trim((string) $noKkVal) : '';
 
-            $tglLahirRaw = $getVal($row, ['TANGGAL_LAHIR', 'TGL_LAHIR']) ?? $this->getCleanCellValue($sheet->getCell("D{$row}"));
+            $tglLahirRaw = $getVal($row, ['TANGGAL_LAHIR', 'TGL_LAHIR', 'TGL_LHR']) ?? $this->getCleanCellValue($sheet->getCell("E{$row}"));
 
-            $statusPegawaiVal = $getVal($row, ['STATUS_KEPEGAWAIAN', 'STATUS', 'JENIS_PEGAWAI']) ?? $this->getCleanCellValue($sheet->getCell("E{$row}"));
+            $statusPegawaiVal = $getVal($row, ['STATUS_KEPEGAWAIAN', 'STATUS', 'JENIS_PEGAWAI', 'STATUS_PEGAWAI']) ?? $this->getCleanCellValue($sheet->getCell("F{$row}"));
             $statusPegawaiRaw = $statusPegawaiVal !== null ? trim((string) $statusPegawaiVal) : '';
 
-            $uptdVal = $getVal($row, ['UNIT_KERJA', 'UPTD', 'NAMA_UPTD']) ?? $this->getCleanCellValue($sheet->getCell("F{$row}"));
+            $uptdVal = $getVal($row, ['UNIT_KERJA', 'UPTD', 'NAMA_UPTD', 'SKPD']) ?? $this->getCleanCellValue($sheet->getCell("G{$row}"));
             $uptdRaw = $uptdVal !== null ? trim((string) $uptdVal) : '';
 
-            $golonganVal = $getVal($row, ['GOLONGAN', 'GOL', 'PANGKAT']) ?? $this->getCleanCellValue($sheet->getCell("G{$row}"));
+            $golonganVal = $getVal($row, ['GOLONGAN', 'GOL', 'PANGKAT', 'GOL_RUANG']) ?? $this->getCleanCellValue($sheet->getCell("H{$row}"));
             $golongan = $golonganVal !== null ? trim((string) $golonganVal) : '';
 
-            $mkgTahunRaw = $getVal($row, ['MKG_TAHUN', 'MKG_THN', 'MKG']) ?? $this->getCleanCellValue($sheet->getCell("H{$row}"));
+            $mkgTahunRaw = $getVal($row, ['MKG_TAHUN', 'MKG_THN', 'MKG', 'MASA_KERJA_TAHUN']) ?? $this->getCleanCellValue($sheet->getCell("I{$row}"));
             $mkgTahun = is_numeric($mkgTahunRaw) ? (int) $mkgTahunRaw : 0;
 
-            $mkgBulanRaw = $getVal($row, ['MKG_BULAN', 'MKG_BLN']) ?? $this->getCleanCellValue($sheet->getCell("I{$row}"));
+            $mkgBulanRaw = $getVal($row, ['MKG_BULAN', 'MKG_BLN', 'MASA_KERJA_BULAN']) ?? $this->getCleanCellValue($sheet->getCell("J{$row}"));
             $mkgBulan = is_numeric($mkgBulanRaw) ? (int) $mkgBulanRaw : 0;
 
-            $tmtKgbRaw = $getVal($row, ['TMT_KGB_TERAKHIR', 'TMT_KGB', 'TMT_TERAKHIR']) ?? $this->getCleanCellValue($sheet->getCell("J{$row}"));
+            $tmtKgbRaw = $getVal($row, ['TMT_KGB_TERAKHIR', 'TMT_KGB', 'TMT_TERAKHIR', 'TMT_KGB_LALU']) ?? $this->getCleanCellValue($sheet->getCell("K{$row}"));
 
-            $gajiPokokRaw = $getVal($row, ['GAJI_POKOK_TERAKHIR', 'GAJI_POKOK', 'GAJI']) ?? $this->getCleanCellValue($sheet->getCell("K{$row}"));
+            $gajiPokokRaw = $getVal($row, ['GAJI_POKOK_TERAKHIR', 'GAJI_POKOK', 'GAJI', 'GAPOK']) ?? $this->getCleanCellValue($sheet->getCell("L{$row}"));
 
-            $provinsiVal = $getVal($row, ['PROVINSI']) ?? $this->getCleanCellValue($sheet->getCell("L{$row}"));
+            $provinsiVal = $getVal($row, ['PROVINSI', 'PROV']) ?? $this->getCleanCellValue($sheet->getCell("M{$row}"));
             $provinsi = $provinsiVal !== null ? trim((string) $provinsiVal) : '';
 
-            $kabKotaVal = $getVal($row, ['KABUPATEN_KOTA', 'KABUPATEN', 'KOTA']) ?? $this->getCleanCellValue($sheet->getCell("M{$row}"));
+            $kabKotaVal = $getVal($row, ['KABUPATEN_KOTA', 'KABUPATEN', 'KOTA', 'KAB_KOTA']) ?? $this->getCleanCellValue($sheet->getCell("N{$row}"));
             $kabKota = $kabKotaVal !== null ? trim((string) $kabKotaVal) : '';
 
-            $kecamatanVal = $getVal($row, ['KECAMATAN']) ?? $this->getCleanCellValue($sheet->getCell("N{$row}"));
+            $kecamatanVal = $getVal($row, ['KECAMATAN', 'KEC']) ?? $this->getCleanCellValue($sheet->getCell("O{$row}"));
             $kecamatan = $kecamatanVal !== null ? trim((string) $kecamatanVal) : '';
 
-            $kelurahanVal = $getVal($row, ['KELURAHAN']) ?? $this->getCleanCellValue($sheet->getCell("O{$row}"));
+            $kelurahanVal = $getVal($row, ['KELURAHAN', 'KEL', 'DESA']) ?? $this->getCleanCellValue($sheet->getCell("P{$row}"));
             $kelurahan = $kelurahanVal !== null ? trim((string) $kelurahanVal) : '';
 
-            $alamatDomisiliVal = $getVal($row, ['ALAMAT_DOMISILI', 'ALAMAT']) ?? $this->getCleanCellValue($sheet->getCell("P{$row}"));
+            $alamatDomisiliVal = $getVal($row, ['ALAMAT_DOMISILI', 'ALAMAT', 'DOMISILI']) ?? $this->getCleanCellValue($sheet->getCell("Q{$row}"));
             $alamatDomisili = $alamatDomisiliVal !== null ? trim((string) $alamatDomisiliVal) : '';
 
-            $noHpVal = $getVal($row, ['NO_HP', 'HP', 'TELEPON']) ?? $this->getCleanCellValue($sheet->getCell("Q{$row}"));
+            $noHpVal = $getVal($row, ['NO_HP', 'HP', 'TELEPON', 'NO_TELP', 'NO_HANDPHONE']) ?? $this->getCleanCellValue($sheet->getCell("R{$row}"));
             $noHp = $noHpVal !== null ? trim((string) $noHpVal) : '';
 
-            $alamatKtpVal = $getVal($row, ['ALAMAT_KTP']) ?? $this->getCleanCellValue($sheet->getCell("R{$row}"));
+            $alamatKtpVal = $getVal($row, ['ALAMAT_KTP', 'ALAMAT_KTP_NON_SULSEL', 'KTP_ALAMAT']) ?? $this->getCleanCellValue($sheet->getCell("S{$row}"));
             $alamatKtp = $alamatKtpVal !== null ? trim((string) $alamatKtpVal) : '';
 
             // Parse status kepegawaian
@@ -655,12 +741,17 @@ class PegawaiController extends Controller
             $gajiPokok = is_numeric($gajiPokokRaw) ? (float) $gajiPokokRaw : null;
             $estimasiGajiBaru = $gajiPokok ? $this->calculateSalaryBump($gajiPokok, $kepegawaian) : null;
 
-            // Check existing by NIK
+            // Check existing by NIP/NIK
             $existing = Pegawai::where('nik', $nik)->first();
+            if (! $existing && ! empty($nikVal) && $nikVal !== $nik) {
+                $existing = Pegawai::where('nik', $nikVal)->first();
+            }
+
             if ($existing) {
                 if ($updateExisting) {
                     $existing->update([
                         'nama' => $nama,
+                        'nik' => $nik,
                         'no_kk' => $noKk ?: $existing->no_kk,
                         'tanggal_lahir' => $tanggalLahir ?: $existing->tanggal_lahir,
                         'umur' => $umur ?: $existing->umur,
@@ -723,14 +814,19 @@ class PegawaiController extends Controller
     /**
      * Process Sheet 1 from Dinas file (DATA PEGAWAI PPPK).
      */
-    private function processDinasSheet1($sheet, array &$uptdMap, bool $updateExisting, int &$imported, int &$updated, int &$skipped): void
+    private function processDinasSheet1($sheet, array &$uptdMap, bool $updateExisting, int &$imported, int &$updated, int &$skipped, int &$fallbackCount = 0): void
     {
         $maxRow = $sheet->getHighestRow();
         $currentUptd = null;
 
         for ($row = 3; $row <= $maxRow; $row++) {
             $colB = $this->getCellString($sheet->getCell("B{$row}"));
-            $nik = $this->getCellString($sheet->getCell("D{$row}"));
+            $colC = $this->getCellString($sheet->getCell("C{$row}"));
+            $colD = $this->getCellString($sheet->getCell("D{$row}"));
+
+            $hasNip = (! empty($colC) && $colC !== '-');
+            $hasNik = (! empty($colD) && $colD !== '-');
+            $nik = $hasNip ? $colC : ($hasNik ? $colD : '');
 
             if (empty($colB) && empty($nik)) {
                 continue;
@@ -744,6 +840,10 @@ class PegawaiController extends Controller
 
             if (empty($nik) || empty($colB) || ! $currentUptd) {
                 continue;
+            }
+
+            if (! $hasNip && $hasNik) {
+                $fallbackCount++;
             }
 
             $tanggalLahir = $this->parseExcelDate($this->getCleanCellValue($sheet->getCell("E{$row}")));
@@ -819,14 +919,19 @@ class PegawaiController extends Controller
     /**
      * Process Sheet 2 from Dinas file (DATA PEGAWAI PNS).
      */
-    private function processDinasSheet2($sheet, array &$uptdMap, bool $updateExisting, int &$imported, int &$updated, int &$skipped): void
+    private function processDinasSheet2($sheet, array &$uptdMap, bool $updateExisting, int &$imported, int &$updated, int &$skipped, int &$fallbackCount = 0): void
     {
         $maxRow = $sheet->getHighestRow();
         $currentUptd = null;
 
         for ($row = 3; $row <= $maxRow; $row++) {
             $colB = $this->getCellString($sheet->getCell("B{$row}"));
-            $nik = $this->getCellString($sheet->getCell("D{$row}"));
+            $colC = $this->getCellString($sheet->getCell("C{$row}"));
+            $colD = $this->getCellString($sheet->getCell("D{$row}"));
+
+            $hasNip = (! empty($colC) && $colC !== '-');
+            $hasNik = (! empty($colD) && $colD !== '-');
+            $nik = $hasNip ? $colC : ($hasNik ? $colD : '');
 
             if (empty($colB) && empty($nik)) {
                 continue;
@@ -840,6 +945,10 @@ class PegawaiController extends Controller
 
             if (empty($nik) || empty($colB) || ! $currentUptd) {
                 continue;
+            }
+
+            if (! $hasNip && $hasNik) {
+                $fallbackCount++;
             }
 
             $noKk = $this->getCellString($sheet->getCell("E{$row}"));

@@ -94,14 +94,15 @@
 
                     <a href="{{ route('pegawai.template') }}" class="btn-secondary-custom w-100 justify-content-center mb-4 py-2" style="background: #FAF8F5;">
                         <i class="bi bi-file-earmark-arrow-down text-success fs-5"></i>
-                        <span>Unduh Template Format SIMPEG (.xlsx)</span>
+                        <span>Unduh Template Format SIMPEG Terbaru (.xlsx)</span>
                     </a>
 
                     <h6 class="fw-bold mb-2" style="font-size: 13px; color: var(--text-primary);">
                         <i class="bi bi-info-circle text-primary"></i> Ketentuan Data Import:
                     </h6>
                     <ul style="font-size: 12.5px; color: var(--text-secondary); line-height: 1.7; padding-left: 20px;" class="mb-0">
-                        <li><strong>Kolom Wajib</strong>: <code>NAMA</code>, <code>NIP</code> (atau NIK), <code>STATUS_KEPEGAWAIAN</code> (PNS/PPPK), dan <code>UNIT_KERJA</code>.</li>
+                        <li><strong>Fallback Otomatis NIP & NIK</strong>: Jika kolom <code>NIP</code> kosong atau tanda strip (<code>-</code>), sistem <strong>secara otomatis mengisi identitas dari kolom <code>NIK</code></strong> (KTP).</li>
+                        <li><strong>Kolom Wajib</strong>: <code>NAMA</code>, <code>NIP</code> (atau <code>NIK</code>), <code>STATUS_KEPEGAWAIAN</code> (PNS/PPPK), dan <code>UNIT_KERJA</code>.</li>
                         <li><strong>Batas Usia Pensiun</strong>: Pegawai yang berumur <strong>&ge; 58 tahun</strong> otomatis berstatus <strong>Pensiun</strong>.</li>
                         <li><strong>Format Tanggal</strong>: Gunakan format tanggal standar Excel atau teks <code>YYYY-MM-DD</code> (contoh: <code>1985-07-25</code>).</li>
                         <li><strong>Kenaikan Gaji (KGB)</strong>: Jika kolom TMT KGB diisi, sistem otomatis menghitung jadwal jatuh tempo berikutnya (+2 tahun).</li>
@@ -128,8 +129,8 @@
                 <thead style="background: var(--light-secondary); color: var(--text-primary);">
                     <tr>
                         <th style="width: 160px;">Nama Kolom</th>
-                        <th style="width: 100px;">Wajib?</th>
-                        <th style="width: 140px;">Tipe Data</th>
+                        <th style="width: 130px;">Wajib?</th>
+                        <th style="width: 130px;">Tipe Data</th>
                         <th>Contoh Nilai</th>
                         <th>Keterangan</th>
                     </tr>
@@ -144,15 +145,22 @@
                     </tr>
                     <tr>
                         <td><code>NIP</code></td>
-                        <td><span class="badge bg-danger">Wajib</span></td>
-                        <td>Angka/Teks</td>
-                        <td>19820815 200502 1 003 / 7371011508820001</td>
-                        <td>Nomor Induk Pegawai (atau NIK KTP jika belum memiliki NIP)</td>
+                        <td><span class="badge bg-warning text-dark">Wajib Salah Satu</span></td>
+                        <td>Angka / Teks</td>
+                        <td>19820815 200502 1 003</td>
+                        <td>Nomor Induk Pegawai 18 digit. <em>Jika kosong, otomatis fallback ke NIK</em></td>
+                    </tr>
+                    <tr>
+                        <td><code>NIK</code></td>
+                        <td><span class="badge bg-warning text-dark">Wajib Salah Satu</span></td>
+                        <td>Angka / Teks</td>
+                        <td>7371011508820001</td>
+                        <td>Nomor Induk Kependudukan / KTP 16 digit (dipakai jika belum memiliki NIP)</td>
                     </tr>
                     <tr>
                         <td><code>NO_KK</code></td>
                         <td><span class="badge bg-secondary">Opsional</span></td>
-                        <td>Angka/Teks</td>
+                        <td>Angka / Teks</td>
                         <td>7371011508000001</td>
                         <td>Nomor Kartu Keluarga</td>
                     </tr>
