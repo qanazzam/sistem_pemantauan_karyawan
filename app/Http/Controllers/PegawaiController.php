@@ -6,6 +6,7 @@ use App\Models\Pegawai;
 use App\Models\Uptd;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Cache;
 use PhpOffice\PhpSpreadsheet\Cell\Coordinate;
 use PhpOffice\PhpSpreadsheet\IOFactory;
 use PhpOffice\PhpSpreadsheet\Shared\Date;
@@ -17,6 +18,15 @@ use Symfony\Component\HttpFoundation\StreamedResponse;
 
 class PegawaiController extends Controller
 {
+    public const DEFAULT_UPTDS = [
+        ['nama_uptd' => 'UPTD WS. JENEBERANG', 'kode' => 'JNB'],
+        ['nama_uptd' => 'UPTD W. POMPENGAN LARONA', 'kode' => 'PL'],
+        ['nama_uptd' => 'UPTD WS. SADDANG', 'kode' => 'SDG'],
+        ['nama_uptd' => 'UPTD WS. WALANAE CENRANAE', 'kode' => 'WC'],
+        ['nama_uptd' => 'UPTD KAWASAN CPI', 'kode' => 'CPI'],
+        ['nama_uptd' => 'DINAS SUMBER DAYA AIR, CIPTA KARYA & TATA RUANG', 'kode' => 'DSDA'],
+    ];
+
     private array $golonganPns = [
         'I/a', 'I/b', 'I/c', 'I/d',
         'II/a', 'II/b', 'II/c', 'II/d',
@@ -33,11 +43,12 @@ class PegawaiController extends Controller
     {
         $query = Pegawai::with('uptd');
 
-        // Search by name or NIK
+        // Search by name, NIP, or NIK
         if ($request->filled('search')) {
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")
+                    ->orWhere('nip', 'like', "%{$search}%")
                     ->orWhere('nik', 'like', "%{$search}%");
             });
         }
@@ -64,15 +75,18 @@ class PegawaiController extends Controller
 
         $pegawai = $query->orderBy('nama')->paginate(15)->withQueryString();
 
+        $this->ensureDefaultUptds();
         $uptdList = Uptd::orderBy('nama_uptd')->get();
-        $kabupatenList = Pegawai::select('kabupaten_kota')
-            ->whereNotNull('kabupaten_kota')
-            ->where('kabupaten_kota', '!=', '')
-            ->distinct()
-            ->orderBy('kabupaten_kota')
-            ->pluck('kabupaten_kota');
+        $kabupatenList = Cache::remember('kabupaten_list_all', 300, function () {
+            return Pegawai::select('kabupaten_kota')
+                ->whereNotNull('kabupaten_kota')
+                ->where('kabupaten_kota', '!=', '')
+                ->distinct()
+                ->orderBy('kabupaten_kota')
+                ->pluck('kabupaten_kota');
+        });
 
-        $totalFiltered = $query->count();
+        $totalFiltered = $pegawai->total();
 
         return view('pegawai.index', compact(
             'pegawai',
@@ -94,6 +108,7 @@ class PegawaiController extends Controller
      */
     public function create()
     {
+        $this->ensureDefaultUptds();
         $uptdList = Uptd::orderBy('nama_uptd')->get();
         $golonganPns = $this->golonganPns;
         $golonganPppk = $this->golonganPppk;
@@ -106,14 +121,10 @@ class PegawaiController extends Controller
      */
     public function store(Request $request)
     {
-        // If 'nip' input was sent instead of 'nik', merge into 'nik'
-        if ($request->filled('nip') && ! $request->filled('nik')) {
-            $request->merge(['nik' => $request->nip]);
-        }
-
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
-            'nik' => 'required|string|max:30|unique:pegawai,nik',
+            'nip' => 'nullable|required_without:nik|string|max:30|unique:pegawai,nip',
+            'nik' => 'nullable|required_without:nip|string|max:30|unique:pegawai,nik',
             'no_kk' => 'nullable|string|max:30',
             'tanggal_lahir' => 'nullable|date',
             'status_kepegawaian' => 'required|in:PNS,PPPK,ASN,PPPK PW',
@@ -135,16 +146,26 @@ class PegawaiController extends Controller
             'alamat_ktp' => 'nullable|string|max:500',
         ], [
             'nama.required' => 'Nama lengkap pegawai wajib diisi.',
-            'nik.required' => 'NIP (atau NIK) wajib diisi.',
-            'nik.unique' => 'NIP/NIK ini sudah terdaftar dalam sistem.',
+            'nip.required_without' => 'NIP atau NIK wajib diisi salah satu.',
+            'nik.required_without' => 'NIP atau NIK wajib diisi salah satu.',
+            'nip.unique' => 'NIP ini sudah terdaftar dalam sistem.',
+            'nik.unique' => 'NIK ini sudah terdaftar dalam sistem.',
             'status_kepegawaian.required' => 'Status kepegawaian (PNS/PPPK) wajib dipilih.',
             'uptd_id.required' => 'Unit Kerja (UPTD) wajib dipilih.',
         ]);
 
-        // Calculate age and retirement status
+        $nip = ! empty($validated['nip']) ? trim($validated['nip']) : null;
+        $nik = ! empty($validated['nik']) ? trim($validated['nik']) : null;
+
+        // Tanggal lahir & umur otomatis dari NIP; jika tidak ada NIP (fallback ke NIK), tanggal lahir kosong
+        $tanggalLahir = null;
         $umur = null;
-        if (! empty($validated['tanggal_lahir'])) {
-            $umur = Carbon::parse($validated['tanggal_lahir'])->age;
+        if ($nip) {
+            $parsedTgl = Pegawai::tanggalLahirDariNip($nip);
+            if ($parsedTgl) {
+                $tanggalLahir = $parsedTgl->toDateString();
+                $umur = $parsedTgl->age;
+            }
         }
 
         // Retirement age cutoff 58 years
@@ -169,9 +190,10 @@ class PegawaiController extends Controller
         $pegawai = Pegawai::create([
             'uptd_id' => $validated['uptd_id'],
             'nama' => $validated['nama'],
-            'nik' => $validated['nik'],
+            'nip' => $nip,
+            'nik' => $nik,
             'no_kk' => $validated['no_kk'] ?? null,
-            'tanggal_lahir' => $validated['tanggal_lahir'] ?? null,
+            'tanggal_lahir' => $tanggalLahir,
             'umur' => $umur,
             'status_kepegawaian' => $validated['status_kepegawaian'],
             'status_aktif' => $statusAktif,
@@ -203,6 +225,7 @@ class PegawaiController extends Controller
      */
     public function edit(Pegawai $pegawai)
     {
+        $this->ensureDefaultUptds();
         $uptdList = Uptd::orderBy('nama_uptd')->get();
         $golonganPns = $this->golonganPns;
         $golonganPppk = $this->golonganPppk;
@@ -215,13 +238,10 @@ class PegawaiController extends Controller
      */
     public function update(Request $request, Pegawai $pegawai)
     {
-        if ($request->filled('nip') && !$request->filled('nik')) {
-            $request->merge(['nik' => $request->nip]);
-        }
-
         $validated = $request->validate([
             'nama' => 'required|string|max:255',
-            'nik' => 'required|string|max:30|unique:pegawai,nik,' . $pegawai->id,
+            'nip' => 'nullable|required_without:nik|string|max:30|unique:pegawai,nip,' . $pegawai->id,
+            'nik' => 'nullable|required_without:nip|string|max:30|unique:pegawai,nik,' . $pegawai->id,
             'no_kk' => 'nullable|string|max:30',
             'tanggal_lahir' => 'nullable|date',
             'status_kepegawaian' => 'required|in:PNS,PPPK,ASN,PPPK PW',
@@ -243,18 +263,28 @@ class PegawaiController extends Controller
             'alamat_ktp' => 'nullable|string|max:500',
         ], [
             'nama.required' => 'Nama lengkap pegawai wajib diisi.',
-            'nik.required' => 'NIP (atau NIK) wajib diisi.',
-            'nik.unique' => 'NIP/NIK ini sudah digunakan oleh pegawai lain.',
+            'nip.required_without' => 'NIP atau NIK wajib diisi salah satu.',
+            'nik.required_without' => 'NIP atau NIK wajib diisi salah satu.',
+            'nip.unique' => 'NIP ini sudah digunakan oleh pegawai lain.',
+            'nik.unique' => 'NIK ini sudah digunakan oleh pegawai lain.',
             'status_kepegawaian.required' => 'Status kepegawaian (PNS/PPPK) wajib dipilih.',
             'uptd_id.required' => 'Unit Kerja (UPTD) wajib dipilih.',
         ]);
 
         $oldUptdId = $pegawai->uptd_id;
 
-        // Calculate age and retirement status
+        $nip = ! empty($validated['nip']) ? trim($validated['nip']) : null;
+        $nik = ! empty($validated['nik']) ? trim($validated['nik']) : null;
+
+        // Tanggal lahir & umur otomatis dari NIP; jika tidak ada NIP (fallback ke NIK), tanggal lahir kosong
+        $tanggalLahir = null;
         $umur = null;
-        if (!empty($validated['tanggal_lahir'])) {
-            $umur = Carbon::parse($validated['tanggal_lahir'])->age;
+        if ($nip) {
+            $parsedTgl = Pegawai::tanggalLahirDariNip($nip);
+            if ($parsedTgl) {
+                $tanggalLahir = $parsedTgl->toDateString();
+                $umur = $parsedTgl->age;
+            }
         }
 
         $statusAktif = $validated['status_aktif'] ?? 'Aktif';
@@ -278,9 +308,10 @@ class PegawaiController extends Controller
         $pegawai->update([
             'uptd_id' => $validated['uptd_id'],
             'nama' => $validated['nama'],
-            'nik' => $validated['nik'],
+            'nip' => $nip,
+            'nik' => $nik,
             'no_kk' => $validated['no_kk'] ?? null,
-            'tanggal_lahir' => $validated['tanggal_lahir'] ?? null,
+            'tanggal_lahir' => $tanggalLahir,
             'umur' => $umur,
             'status_kepegawaian' => $validated['status_kepegawaian'],
             'status_aktif' => $statusAktif,
@@ -331,6 +362,7 @@ class PegawaiController extends Controller
      */
     public function importForm()
     {
+        $this->ensureDefaultUptds();
         $uptdList = Uptd::orderBy('nama_uptd')->get();
 
         return view('pegawai.import', compact('uptdList'));
@@ -407,14 +439,14 @@ class PegawaiController extends Controller
             ],
             [
                 'NURHALISA, S.Sos.', '', '7371022204900002', '7371022204000002',
-                '1990-04-22', 'PPPK', 'UPTD W. POMPENGAN LARONA', 'IX',
+                '', 'PPPK', 'UPTD W. POMPENGAN LARONA', 'IX',
                 4, 0, '2024-10-01', 3200000,
                 'SULAWESI SELATAN', 'KOTA PALOPO', 'WARA', 'BOMBON',
                 'Jl. Dr. Ratulangi No. 45', '085299887766', 'Jl. Dr. Ratulangi No. 45',
             ],
             [
                 'MUHAMMAD ILHAM, S.Pd.', '199506122023211004', '7371031206950003', '7371031206000003',
-                '1995-06-12', 'PPPK', 'UPTD WS. CENA RANA', 'IX',
+                '1995-06-12', 'PPPK', 'UPTD WS. WALANAE CENRANAE', 'IX',
                 2, 0, '2025-03-01', 3200000,
                 'SULAWESI SELATAN', 'BONE', 'TANETE RIATTANG', 'BIRU',
                 'Jl. Merdeka No. 8', '081344556677', 'Jl. Merdeka No. 8',
@@ -475,6 +507,8 @@ class PegawaiController extends Controller
         } catch (\Exception $e) {
             return redirect()->back()->with('error', 'Gagal membaca berkas Excel: '.$e->getMessage());
         }
+
+        $this->ensureDefaultUptds();
 
         // Cache UPTD records
         $allUptds = Uptd::all();
@@ -581,143 +615,171 @@ class PegawaiController extends Controller
             }
         }
 
-        // Helper to get non-empty value by possible header names
-        $getVal = function ($row, array $possibleNames) use ($sheet, $headerRow) {
+        // Helper to resolve column index by header names, with fallback if header row has no match
+        $findCol = function (array $possibleNames, ?int $defaultCol = null) use ($headerRow) {
             foreach ($possibleNames as $name) {
                 $upper = strtoupper(trim($name));
-                $col = $headerRow[$upper] ?? null;
+                if (isset($headerRow[$upper])) {
+                    return $headerRow[$upper];
+                }
+                $norm = strtoupper(str_replace([' ', '/', '-', '.', '(', ')'], '_', $upper));
+                $norm = trim($norm, '_');
+                if (isset($headerRow[$norm])) {
+                    return $headerRow[$norm];
+                }
+            }
+
+            return $defaultCol;
+        };
+
+        // Detect if sheet has an explicit NIK column header
+        $hasNikHeader = (bool) $findCol(['NIK', 'KTP', 'NO_KTP', 'NIK_KTP', 'KTP_NIK', 'NOMOR_INDUK_KEPENDUDUKAN']);
+
+        // Pre-resolve column indices for all fields based on header names (or standard 18/19 column layout)
+        $colNama = $findCol(['NAMA', 'NAMA_PEGAWAI', 'NAMA_LENGKAP'], 1);
+        $colNip = $findCol(['NIP', 'NOMOR_INDUK_PEGAWAI', 'NIP_BARU'], 2);
+        $colNik = $findCol(['NIK', 'KTP', 'NO_KTP', 'NIK_KTP', 'KTP_NIK', 'NOMOR_INDUK_KEPENDUDUKAN'], $hasNikHeader ? 3 : null);
+        $colNoKk = $findCol(['NO_KK', 'KK', 'KARTU_KELUARGA', 'NO_KARTU_KELUARGA'], $hasNikHeader ? 4 : 3);
+        $colTglLahir = $findCol(['TANGGAL_LAHIR', 'TGL_LAHIR', 'TGL_LHR'], $hasNikHeader ? 5 : 4);
+        $colStatusPegawai = $findCol(['STATUS_KEPEGAWAIAN', 'STATUS', 'JENIS_PEGAWAI', 'STATUS_PEGAWAI'], $hasNikHeader ? 6 : 5);
+        $colUptd = $findCol(['UNIT_KERJA', 'UPTD', 'NAMA_UPTD', 'SKPD'], $hasNikHeader ? 7 : 6);
+        $colGolongan = $findCol(['GOLONGAN', 'GOL', 'PANGKAT', 'GOL_RUANG'], $hasNikHeader ? 8 : 7);
+        $colMkgTahun = $findCol(['MKG_TAHUN', 'MKG_THN', 'MKG', 'MASA_KERJA_TAHUN'], $hasNikHeader ? 9 : 8);
+        $colMkgBulan = $findCol(['MKG_BULAN', 'MKG_BLN', 'MASA_KERJA_BULAN'], $hasNikHeader ? 10 : 9);
+        $colTmtKgb = $findCol(['TMT_KGB_TERAKHIR', 'TMT_KGB', 'TMT_TERAKHIR', 'TMT_KGB_LALU'], $hasNikHeader ? 11 : 10);
+        $colGajiPokok = $findCol(['GAJI_POKOK_TERAKHIR', 'GAJI_POKOK', 'GAJI', 'GAPOK'], $hasNikHeader ? 12 : 11);
+        $colProvinsi = $findCol(['PROVINSI', 'PROV'], $hasNikHeader ? 13 : 12);
+        $colKabKota = $findCol(['KABUPATEN_KOTA', 'KABUPATEN', 'KOTA', 'KAB_KOTA'], $hasNikHeader ? 14 : 13);
+        $colKecamatan = $findCol(['KECAMATAN', 'KEC'], $hasNikHeader ? 15 : 14);
+        $colKelurahan = $findCol(['KELURAHAN', 'KEL', 'DESA'], $hasNikHeader ? 16 : 15);
+        $colAlamatDomisili = $findCol(['ALAMAT_DOMISILI', 'ALAMAT', 'DOMISILI'], $hasNikHeader ? 17 : 16);
+        $colNoHp = $findCol(['NO_HP', 'HP', 'TELEPON', 'NO_TELP', 'NO_HANDPHONE'], $hasNikHeader ? 18 : 17);
+        $colAlamatKtp = $findCol(['ALAMAT_KTP', 'ALAMAT_KTP_NON_SULSEL', 'KTP_ALAMAT'], $hasNikHeader ? 19 : 18);
+        $colIdGabungan = $findCol(['NIP_NIK', 'NIK_NIP', 'NO_IDENTITAS', 'IDENTITAS', 'ID_PEGAWAI']);
+
+        for ($row = 2; $row <= $highestRow; $row++) {
+            $getCell = function (?int $col) use ($sheet, $row) {
                 if (! $col) {
-                    $norm = strtoupper(str_replace([' ', '/', '-', '.', '(', ')'], '_', $upper));
-                    $norm = trim($norm, '_');
-                    $col = $headerRow[$norm] ?? null;
+                    return '';
+                }
+                $v = $this->getCleanCellValue($sheet->getCell([$col, $row]));
+                if ($v === null) {
+                    return '';
+                }
+                $s = trim((string) $v);
+
+                return ($s === '-') ? '' : $s;
+            };
+
+            $nama = $getCell($colNama);
+            $rawNip = $getCell($colNip);
+            $rawNik = $getCell($colNik);
+            $idVal = $getCell($colIdGabungan);
+
+            $nip = $rawNip !== '' ? $rawNip : null;
+            $nik = $rawNik !== '' ? $rawNik : null;
+
+            // Jika belum terpisah, periksa panjang digit B dan C
+            if (! $nip && ! $nik) {
+                $cellB = $getCell(2);
+                $cellC = $getCell(3);
+
+                if ($cellB !== '') {
+                    $digitsB = preg_replace('/\D/', '', $cellB);
+                    if (strlen($digitsB) === 18) {
+                        $nip = $cellB;
+                    } elseif (strlen($digitsB) === 16) {
+                        $nik = $cellB;
+                    } else {
+                        $nip = $cellB;
+                    }
                 }
 
-                if ($col !== null) {
-                    $val = trim((string) $this->getCleanCellValue($sheet->getCell([$col, $row])));
-                    // Skip if value is completely empty or just a dash placeholder
-                    if ($val !== '' && $val !== '-') {
-                        return $val;
+                if ($cellC !== '') {
+                    $digitsC = preg_replace('/\D/', '', $cellC);
+                    if (strlen($digitsC) === 16) {
+                        $nik = $cellC;
+                    } elseif (strlen($digitsC) === 18 && ! $nip) {
+                        $nip = $cellC;
                     }
                 }
             }
 
-            return null;
-        };
-
-        for ($row = 2; $row <= $highestRow; $row++) {
-            $namaVal = $getVal($row, ['NAMA', 'NAMA_PEGAWAI', 'NAMA_LENGKAP']) ?? $this->getCleanCellValue($sheet->getCell("A{$row}"));
-            $nama = $namaVal !== null ? trim((string) $namaVal) : '';
-
-            // 1. Ambil nilai NIP khusus
-            $nipVal = $getVal($row, ['NIP', 'NOMOR_INDUK_PEGAWAI', 'NIP_BARU']);
-
-            // 2. Ambil nilai NIK khusus (KTP)
-            $nikVal = $getVal($row, ['NIK', 'KTP', 'NO_KTP', 'NIK_KTP', 'KTP_NIK', 'NOMOR_INDUK_KEPENDUDUKAN']);
-
-            // 3. Ambil jika ada header gabungan
-            $idVal = $getVal($row, ['NIP_NIK', 'NIK_NIP', 'NO_IDENTITAS', 'IDENTITAS', 'ID_PEGAWAI']);
-
-            // Fallback otomatis: Prioritaskan NIP, jika kosong/tidak ada gunakan NIK
-            $nik = null;
-            $usedFallback = false;
-
-            if (! empty($nipVal) && $nipVal !== '-') {
-                $nik = $nipVal;
-            } elseif (! empty($nikVal) && $nikVal !== '-') {
-                $nik = $nikVal;
-                $usedFallback = true;
-            } elseif (! empty($idVal) && $idVal !== '-') {
-                $nik = $idVal;
-            } else {
-                // Fallback berdasarkan letak kolom fisik jika file tanpa header standar
-                $cellB = trim((string) $this->getCleanCellValue($sheet->getCell("B{$row}")));
-                $cellC = trim((string) $this->getCleanCellValue($sheet->getCell("C{$row}")));
-
-                if ($cellB !== '' && $cellB !== '-') {
-                    $nik = $cellB;
-                } elseif ($cellC !== '' && $cellC !== '-' && is_numeric(str_replace([' ', '-'], '', $cellC))) {
-                    $nik = $cellC;
-                    $usedFallback = true;
+            if (! $nip && $idVal !== '') {
+                $digitsId = preg_replace('/\D/', '', $idVal);
+                if (strlen($digitsId) === 18) {
+                    $nip = $idVal;
+                } else {
+                    $nik = $idVal;
                 }
             }
 
-            $nik = $nik !== null ? trim((string) $nik) : '';
-
-            if (empty($nama) && empty($nik)) {
+            if (empty($nama) && empty($nip) && empty($nik)) {
                 continue;
             }
 
-            if (empty($nama) || empty($nik)) {
+            if (empty($nama) || (empty($nip) && empty($nik))) {
                 $skipped++;
 
                 continue;
             }
 
-            if ($usedFallback) {
+            if (empty($nip) && ! empty($nik)) {
                 $fallbackCount++;
             }
 
-            $noKkVal = $getVal($row, ['NO_KK', 'KK', 'KARTU_KELUARGA', 'NO_KARTU_KELUARGA']);
-            if ($noKkVal === null) {
-                if (isset($headerRow['NIK'])) {
-                    $noKkVal = $this->getCleanCellValue($sheet->getCell("D{$row}"));
-                } else {
-                    $noKkVal = $this->getCleanCellValue($sheet->getCell("C{$row}"));
-                }
-            }
-            $noKk = $noKkVal !== null ? trim((string) $noKkVal) : '';
+            $noKk = $getCell($colNoKk);
+            $tglLahirRaw = $getCell($colTglLahir);
+            $statusPegawaiRaw = $getCell($colStatusPegawai);
+            $uptdRaw = $getCell($colUptd);
+            $golongan = $getCell($colGolongan);
 
-            $tglLahirRaw = $getVal($row, ['TANGGAL_LAHIR', 'TGL_LAHIR', 'TGL_LHR']) ?? $this->getCleanCellValue($sheet->getCell("E{$row}"));
-
-            $statusPegawaiVal = $getVal($row, ['STATUS_KEPEGAWAIAN', 'STATUS', 'JENIS_PEGAWAI', 'STATUS_PEGAWAI']) ?? $this->getCleanCellValue($sheet->getCell("F{$row}"));
-            $statusPegawaiRaw = $statusPegawaiVal !== null ? trim((string) $statusPegawaiVal) : '';
-
-            $uptdVal = $getVal($row, ['UNIT_KERJA', 'UPTD', 'NAMA_UPTD', 'SKPD']) ?? $this->getCleanCellValue($sheet->getCell("G{$row}"));
-            $uptdRaw = $uptdVal !== null ? trim((string) $uptdVal) : '';
-
-            $golonganVal = $getVal($row, ['GOLONGAN', 'GOL', 'PANGKAT', 'GOL_RUANG']) ?? $this->getCleanCellValue($sheet->getCell("H{$row}"));
-            $golongan = $golonganVal !== null ? trim((string) $golonganVal) : '';
-
-            $mkgTahunRaw = $getVal($row, ['MKG_TAHUN', 'MKG_THN', 'MKG', 'MASA_KERJA_TAHUN']) ?? $this->getCleanCellValue($sheet->getCell("I{$row}"));
+            $mkgTahunRaw = $getCell($colMkgTahun);
             $mkgTahun = is_numeric($mkgTahunRaw) ? (int) $mkgTahunRaw : 0;
 
-            $mkgBulanRaw = $getVal($row, ['MKG_BULAN', 'MKG_BLN', 'MASA_KERJA_BULAN']) ?? $this->getCleanCellValue($sheet->getCell("J{$row}"));
+            $mkgBulanRaw = $getCell($colMkgBulan);
             $mkgBulan = is_numeric($mkgBulanRaw) ? (int) $mkgBulanRaw : 0;
 
-            $tmtKgbRaw = $getVal($row, ['TMT_KGB_TERAKHIR', 'TMT_KGB', 'TMT_TERAKHIR', 'TMT_KGB_LALU']) ?? $this->getCleanCellValue($sheet->getCell("K{$row}"));
+            $tmtKgbRaw = $getCell($colTmtKgb);
+            $gajiPokokRaw = $getCell($colGajiPokok);
 
-            $gajiPokokRaw = $getVal($row, ['GAJI_POKOK_TERAKHIR', 'GAJI_POKOK', 'GAJI', 'GAPOK']) ?? $this->getCleanCellValue($sheet->getCell("L{$row}"));
+            $provinsi = $getCell($colProvinsi);
+            $kabKota = $getCell($colKabKota);
+            $kecamatan = $getCell($colKecamatan);
+            $kelurahan = $getCell($colKelurahan);
+            $alamatDomisili = $getCell($colAlamatDomisili);
+            $noHp = $getCell($colNoHp);
+            $alamatKtp = $getCell($colAlamatKtp);
 
-            $provinsiVal = $getVal($row, ['PROVINSI', 'PROV']) ?? $this->getCleanCellValue($sheet->getCell("M{$row}"));
-            $provinsi = $provinsiVal !== null ? trim((string) $provinsiVal) : '';
-
-            $kabKotaVal = $getVal($row, ['KABUPATEN_KOTA', 'KABUPATEN', 'KOTA', 'KAB_KOTA']) ?? $this->getCleanCellValue($sheet->getCell("N{$row}"));
-            $kabKota = $kabKotaVal !== null ? trim((string) $kabKotaVal) : '';
-
-            $kecamatanVal = $getVal($row, ['KECAMATAN', 'KEC']) ?? $this->getCleanCellValue($sheet->getCell("O{$row}"));
-            $kecamatan = $kecamatanVal !== null ? trim((string) $kecamatanVal) : '';
-
-            $kelurahanVal = $getVal($row, ['KELURAHAN', 'KEL', 'DESA']) ?? $this->getCleanCellValue($sheet->getCell("P{$row}"));
-            $kelurahan = $kelurahanVal !== null ? trim((string) $kelurahanVal) : '';
-
-            $alamatDomisiliVal = $getVal($row, ['ALAMAT_DOMISILI', 'ALAMAT', 'DOMISILI']) ?? $this->getCleanCellValue($sheet->getCell("Q{$row}"));
-            $alamatDomisili = $alamatDomisiliVal !== null ? trim((string) $alamatDomisiliVal) : '';
-
-            $noHpVal = $getVal($row, ['NO_HP', 'HP', 'TELEPON', 'NO_TELP', 'NO_HANDPHONE']) ?? $this->getCleanCellValue($sheet->getCell("R{$row}"));
-            $noHp = $noHpVal !== null ? trim((string) $noHpVal) : '';
-
-            $alamatKtpVal = $getVal($row, ['ALAMAT_KTP', 'ALAMAT_KTP_NON_SULSEL', 'KTP_ALAMAT']) ?? $this->getCleanCellValue($sheet->getCell("S{$row}"));
-            $alamatKtp = $alamatKtpVal !== null ? trim((string) $alamatKtpVal) : '';
+            // Validasi proteksi No HP: jika no_hp tidak berformat nomor telepon (misal berisi huruf/plat), pindahkan ke alamat_ktp jika alamat_ktp masih kosong
+            if ($noHp !== '' && preg_match('/[a-zA-Z]{2,}/', $noHp)) {
+                if ($alamatKtp === '') {
+                    $alamatKtp = $noHp;
+                }
+                $noHp = '';
+            }
 
             // Parse status kepegawaian
             $kepegawaian = 'PNS';
-            if (str_contains(strtoupper($statusPegawaiRaw), 'PPPK') || str_contains(strtoupper($statusPegawaiRaw), 'P3K')) {
+            $statusUpper = strtoupper($statusPegawaiRaw);
+            if (str_contains($statusUpper, 'PPPK PW') || str_contains($statusUpper, 'P3K PW')) {
+                $kepegawaian = 'PPPK PW';
+            } elseif (str_contains($statusUpper, 'PPPK') || str_contains($statusUpper, 'P3K')) {
                 $kepegawaian = 'PPPK';
+            } elseif (str_contains($statusUpper, 'ASN')) {
+                $kepegawaian = 'ASN';
             }
 
-            // Parse date of birth & age
-            $tanggalLahir = $this->parseExcelDate($tglLahirRaw);
-            $umur = $tanggalLahir ? Carbon::parse($tanggalLahir)->age : null;
+            // Tanggal lahir & umur otomatis dari NIP; jika tidak ada NIP (fallback ke NIK), tanggal lahir kosong
+            $tanggalLahir = null;
+            $umur = null;
+            if ($nip) {
+                $parsedTgl = Pegawai::tanggalLahirDariNip($nip);
+                if ($parsedTgl) {
+                    $tanggalLahir = $parsedTgl->toDateString();
+                    $umur = $parsedTgl->age;
+                }
+            }
 
             // Retirement age 58
             $statusAktif = 'Aktif';
@@ -728,7 +790,7 @@ class PegawaiController extends Controller
             // Match UPTD
             $uptd = $this->resolveUptd($uptdRaw, $uptdMap);
             if (! $uptd) {
-                $uptd = Uptd::first();
+                $uptd = $this->getDefaultUptd($uptdMap);
             }
 
             // Parse KGB Dates
@@ -741,20 +803,30 @@ class PegawaiController extends Controller
             $gajiPokok = is_numeric($gajiPokokRaw) ? (float) $gajiPokokRaw : null;
             $estimasiGajiBaru = $gajiPokok ? $this->calculateSalaryBump($gajiPokok, $kepegawaian) : null;
 
-            // Check existing by NIP/NIK
-            $existing = Pegawai::where('nik', $nik)->first();
-            if (! $existing && ! empty($nikVal) && $nikVal !== $nik) {
-                $existing = Pegawai::where('nik', $nikVal)->first();
+            // Check existing by NIP or NIK
+            $existing = null;
+            if ($nip) {
+                $existing = Pegawai::where('nip', $nip)->first();
+                if (! $existing) {
+                    $existing = Pegawai::where('nik', $nip)->first();
+                }
+            }
+            if (! $existing && $nik) {
+                $existing = Pegawai::where('nik', $nik)->first();
+                if (! $existing) {
+                    $existing = Pegawai::where('nip', $nik)->first();
+                }
             }
 
             if ($existing) {
                 if ($updateExisting) {
                     $existing->update([
                         'nama' => $nama,
-                        'nik' => $nik,
+                        'nip' => $nip ?: $existing->nip,
+                        'nik' => $nik ?: $existing->nik,
                         'no_kk' => $noKk ?: $existing->no_kk,
-                        'tanggal_lahir' => $tanggalLahir ?: $existing->tanggal_lahir,
-                        'umur' => $umur ?: $existing->umur,
+                        'tanggal_lahir' => $tanggalLahir,
+                        'umur' => $umur,
                         'status_kepegawaian' => $kepegawaian,
                         'status_aktif' => $statusAktif,
                         'uptd_id' => $uptd->id,
@@ -785,6 +857,7 @@ class PegawaiController extends Controller
             Pegawai::create([
                 'uptd_id' => $uptd->id,
                 'nama' => $nama,
+                'nip' => $nip,
                 'nik' => $nik,
                 'no_kk' => $noKk ?: null,
                 'tanggal_lahir' => $tanggalLahir,
@@ -824,29 +897,42 @@ class PegawaiController extends Controller
             $colC = $this->getCellString($sheet->getCell("C{$row}"));
             $colD = $this->getCellString($sheet->getCell("D{$row}"));
 
-            $hasNip = (! empty($colC) && $colC !== '-');
-            $hasNik = (! empty($colD) && $colD !== '-');
-            $nik = $hasNip ? $colC : ($hasNik ? $colD : '');
+            $nip = (! empty($colC) && $colC !== '-') ? $colC : null;
+            $nik = (! empty($colD) && $colD !== '-') ? $colD : null;
 
-            if (empty($colB) && empty($nik)) {
+            if (empty($colB) && empty($nip) && empty($nik)) {
                 continue;
             }
 
-            if (empty($nik) && str_starts_with(strtoupper($colB), 'UPTD')) {
+            if (empty($nip) && empty($nik) && str_starts_with(strtoupper($colB), 'UPTD')) {
                 $currentUptd = $this->resolveUptd($colB, $uptdMap);
 
                 continue;
             }
 
-            if (empty($nik) || empty($colB) || ! $currentUptd) {
+            if ((empty($nip) && empty($nik)) || empty($colB)) {
                 continue;
             }
 
-            if (! $hasNip && $hasNik) {
+            if (! $currentUptd) {
+                $currentUptd = $this->getDefaultUptd($uptdMap);
+            }
+
+            if (empty($nip) && ! empty($nik)) {
                 $fallbackCount++;
             }
 
-            $tanggalLahir = $this->parseExcelDate($this->getCleanCellValue($sheet->getCell("E{$row}")));
+            // Tanggal lahir & umur otomatis dari NIP; jika tidak ada NIP (fallback ke NIK), tanggal lahir kosong
+            $tanggalLahir = null;
+            $umur = null;
+            if ($nip) {
+                $parsedTgl = Pegawai::tanggalLahirDariNip($nip);
+                if ($parsedTgl) {
+                    $tanggalLahir = $parsedTgl->toDateString();
+                    $umur = $parsedTgl->age;
+                }
+            }
+
             $statusPns = $this->getCellString($sheet->getCell("F{$row}"));
             $provinsi = $this->getCellString($sheet->getCell("G{$row}"));
             $kabKota = $this->getCellString($sheet->getCell("H{$row}"));
@@ -857,18 +943,40 @@ class PegawaiController extends Controller
             $statusPegawai = $this->getCellString($sheet->getCell("M{$row}"));
             $alamatKtp = $this->getCellString($sheet->getCell("N{$row}"));
 
-            $umur = $tanggalLahir ? Carbon::parse($tanggalLahir)->age : null;
             $statusAktif = (strtolower($statusPns) === 'pensiun' || ($umur !== null && $umur >= 58)) ? 'Pensiun' : 'Aktif';
 
-            $kepegawaian = (strtoupper($statusPegawai) === 'PPPK' || strtoupper($statusPegawai) === 'P3K') ? 'PPPK' : 'PNS';
+            $kepegawaian = 'PNS';
+            $statusUpper = strtoupper($statusPegawai);
+            if (str_contains($statusUpper, 'PPPK PW') || str_contains($statusUpper, 'P3K PW')) {
+                $kepegawaian = 'PPPK PW';
+            } elseif (str_contains($statusUpper, 'PPPK') || str_contains($statusUpper, 'P3K')) {
+                $kepegawaian = 'PPPK';
+            } elseif (str_contains($statusUpper, 'ASN')) {
+                $kepegawaian = 'ASN';
+            }
 
-            $existing = Pegawai::where('nik', $nik)->first();
+            $existing = null;
+            if ($nip) {
+                $existing = Pegawai::where('nip', $nip)->first();
+                if (! $existing) {
+                    $existing = Pegawai::where('nik', $nip)->first();
+                }
+            }
+            if (! $existing && $nik) {
+                $existing = Pegawai::where('nik', $nik)->first();
+                if (! $existing) {
+                    $existing = Pegawai::where('nip', $nik)->first();
+                }
+            }
+
             if ($existing) {
                 if ($updateExisting) {
                     $existing->update([
                         'nama' => $colB,
-                        'tanggal_lahir' => $tanggalLahir ?: $existing->tanggal_lahir,
-                        'umur' => $umur ?: $existing->umur,
+                        'nip' => $nip ?: $existing->nip,
+                        'nik' => $nik ?: $existing->nik,
+                        'tanggal_lahir' => $tanggalLahir,
+                        'umur' => $umur,
                         'status_kepegawaian' => $kepegawaian,
                         'status_aktif' => $statusAktif,
                         'uptd_id' => $currentUptd->id,
@@ -891,6 +999,7 @@ class PegawaiController extends Controller
             Pegawai::create([
                 'uptd_id' => $currentUptd->id,
                 'nama' => $colB,
+                'nip' => $nip,
                 'nik' => $nik,
                 'tanggal_lahir' => $tanggalLahir,
                 'umur' => $umur,
@@ -929,25 +1038,28 @@ class PegawaiController extends Controller
             $colC = $this->getCellString($sheet->getCell("C{$row}"));
             $colD = $this->getCellString($sheet->getCell("D{$row}"));
 
-            $hasNip = (! empty($colC) && $colC !== '-');
-            $hasNik = (! empty($colD) && $colD !== '-');
-            $nik = $hasNip ? $colC : ($hasNik ? $colD : '');
+            $nip = (! empty($colC) && $colC !== '-') ? $colC : null;
+            $nik = (! empty($colD) && $colD !== '-') ? $colD : null;
 
-            if (empty($colB) && empty($nik)) {
+            if (empty($colB) && empty($nip) && empty($nik)) {
                 continue;
             }
 
-            if (empty($nik) && str_starts_with(strtoupper($colB), 'UPTD')) {
+            if (empty($nip) && empty($nik) && str_starts_with(strtoupper($colB), 'UPTD')) {
                 $currentUptd = $this->resolveUptd($colB, $uptdMap);
 
                 continue;
             }
 
-            if (empty($nik) || empty($colB) || ! $currentUptd) {
+            if ((empty($nip) && empty($nik)) || empty($colB)) {
                 continue;
             }
 
-            if (! $hasNip && $hasNik) {
+            if (! $currentUptd) {
+                $currentUptd = $this->getDefaultUptd($uptdMap);
+            }
+
+            if (empty($nip) && ! empty($nik)) {
                 $fallbackCount++;
             }
 
@@ -961,14 +1073,67 @@ class PegawaiController extends Controller
             $statusPegawai = $this->getCellString($sheet->getCell("L{$row}"));
             $alamatKtp = $this->getCellString($sheet->getCell("M{$row}"));
 
-            $kepegawaian = (strtoupper($statusPegawai) === 'PPPK' || strtoupper($statusPegawai) === 'P3K') ? 'PPPK' : 'PNS';
-
-            $existing = Pegawai::where('nik', $nik)->first();
-            if ($existing) {
-                if (! empty($noKk) && empty($existing->no_kk)) {
-                    $existing->update(['no_kk' => $noKk]);
+            // Tanggal lahir & umur otomatis dari NIP; jika tidak ada NIP (fallback ke NIK), tanggal lahir kosong
+            $tanggalLahir = null;
+            $umur = null;
+            if ($nip) {
+                $parsedTgl = Pegawai::tanggalLahirDariNip($nip);
+                if ($parsedTgl) {
+                    $tanggalLahir = $parsedTgl->toDateString();
+                    $umur = $parsedTgl->age;
                 }
-                $updated++;
+            }
+
+            $kepegawaian = 'PNS';
+            $statusUpper = strtoupper($statusPegawai);
+            if (str_contains($statusUpper, 'PPPK PW') || str_contains($statusUpper, 'P3K PW')) {
+                $kepegawaian = 'PPPK PW';
+            } elseif (str_contains($statusUpper, 'PPPK') || str_contains($statusUpper, 'P3K')) {
+                $kepegawaian = 'PPPK';
+            } elseif (str_contains($statusUpper, 'ASN')) {
+                $kepegawaian = 'ASN';
+            }
+
+            $existing = null;
+            if ($nip) {
+                $existing = Pegawai::where('nip', $nip)->first();
+                if (! $existing) {
+                    $existing = Pegawai::where('nik', $nip)->first();
+                }
+            }
+            if (! $existing && $nik) {
+                $existing = Pegawai::where('nik', $nik)->first();
+                if (! $existing) {
+                    $existing = Pegawai::where('nip', $nik)->first();
+                }
+            }
+
+            if ($existing) {
+                if ($updateExisting) {
+                    $existing->update([
+                        'nama' => $colB,
+                        'nip' => $nip ?: $existing->nip,
+                        'nik' => $nik ?: $existing->nik,
+                        'no_kk' => $noKk ?: $existing->no_kk,
+                        'tanggal_lahir' => $tanggalLahir,
+                        'umur' => $umur,
+                        'status_kepegawaian' => $kepegawaian,
+                        'uptd_id' => $currentUptd->id,
+                        'provinsi' => $provinsi ?: $existing->provinsi,
+                        'kabupaten_kota' => $kabKota ?: $existing->kabupaten_kota,
+                        'kelurahan' => $kelurahan ?: $existing->kelurahan,
+                        'kecamatan' => $kecamatan ?: $existing->kecamatan,
+                        'alamat_domisili' => $alamat ?: $existing->alamat_domisili,
+                        'no_hp' => $noHp ?: $existing->no_hp,
+                        'alamat_ktp' => $alamatKtp ?: $existing->alamat_ktp,
+                    ]);
+                    $updated++;
+                } else {
+                    if (! empty($noKk) && empty($existing->no_kk)) {
+                        $existing->update(['no_kk' => $noKk]);
+                    }
+                    $skipped++;
+                }
 
                 continue;
             }
@@ -976,8 +1141,11 @@ class PegawaiController extends Controller
             Pegawai::create([
                 'uptd_id' => $currentUptd->id,
                 'nama' => $colB,
+                'nip' => $nip,
                 'nik' => $nik,
                 'no_kk' => $noKk ?: null,
+                'tanggal_lahir' => $tanggalLahir,
+                'umur' => $umur,
                 'status_kepegawaian' => $kepegawaian,
                 'status_aktif' => 'Aktif',
                 'golongan' => $kepegawaian === 'PNS' ? 'III/a' : 'IX',
@@ -1040,7 +1208,54 @@ class PegawaiController extends Controller
             return $uptdMap['DINAS SUMBER DAYA AIR, CIPTA KARYA & TATA RUANG'] ?? null;
         }
 
+        $cleanedName = trim(preg_replace('/\s+/', ' ', $rawName));
+        if (strlen($cleanedName) > 2) {
+            $newUptd = Uptd::firstOrCreate(
+                ['nama_uptd' => $cleanedName],
+                ['kode' => strtoupper(substr(preg_replace('/[^A-Za-z]/', '', $cleanedName), 0, 4)) ?: 'UPTD']
+            );
+            $uptdMap[$rawUpper] = $newUptd;
+            $uptdMap[strtoupper($cleanedName)] = $newUptd;
+
+            return $newUptd;
+        }
+
         return null;
+    }
+
+    /**
+     * Ensure default UPTD entries exist in database.
+     */
+    private function ensureDefaultUptds(): void
+    {
+        if (Uptd::count() === 0) {
+            foreach (self::DEFAULT_UPTDS as $item) {
+                Uptd::firstOrCreate(
+                    ['nama_uptd' => $item['nama_uptd']],
+                    ['kode' => $item['kode']]
+                );
+            }
+        }
+    }
+
+    /**
+     * Get or create a reliable fallback UPTD instance.
+     */
+    private function getDefaultUptd(array &$uptdMap): Uptd
+    {
+        $this->ensureDefaultUptds();
+
+        $default = Uptd::first();
+        if (! $default) {
+            $default = Uptd::create([
+                'nama_uptd' => 'UPTD WS. JENEBERANG',
+                'kode' => 'JNB',
+            ]);
+        }
+
+        $uptdMap[strtoupper(trim($default->nama_uptd))] = $default;
+
+        return $default;
     }
 
     /**

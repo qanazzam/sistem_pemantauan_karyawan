@@ -1,0 +1,204 @@
+================================================================================
+          PANDUAN LENGKAP PENGINSTALAN & PENGGUNAAN APLIKASI DESKTOP
+                 SIMPEG PU - DINAS PU PROVINSI SULAWESI SELATAN
+================================================================================
+
+Dokumen ini berisi panduan langkah demi langkah untuk:
+1. Instalasi Docker Desktop for Windows.
+2. Menjalankan database MySQL secara otomatis via "docker-start.bat".
+3. Pengaturan agar Docker dan Database otomatis berjalan saat komputer menyala.
+4. Instalasi dan pembukaan Aplikasi Desktop SIMPEG PU (.exe).
+5. Proses impor data seluruh pegawai dari berkas Excel "Import Data Pegawai.xlsx".
+
+
+================================================================================
+DAFTAR BERKAS YANG DIBUTUHKAN
+================================================================================
+Pastikan berkas-berkas berikut tersedia di komputer Anda:
+1. File Installer Aplikasi : SIMPEG-PU-1.0.0-setup.exe (atau installer .exe terbaru)
+2. Konfigurasi Database   : docker-compose.yml
+3. Skrip Menyalakan DB    : docker-start.bat
+4. Skrip Mematikan DB     : docker-stop.bat
+5. Berkas Data Pegawai    : Import Data Pegawai.xlsx
+
+
+================================================================================
+LANGKAH 1: INSTALASI DOCKER DESKTOP DI KOMPUTER WINDOWS
+================================================================================
+Docker Desktop digunakan untuk menjalankan database MySQL 8.0 tanpa perlu 
+mengatur web server manual seperti XAMPP.
+
+1. Buka browser dan unduh installer resmi Docker Desktop for Windows melalui:
+   https://www.docker.com/products/docker-desktop/
+
+2. Buka file installer "Docker Desktop Installer.exe" yang telah diunduh.
+
+3. Pada jendela instalasi yang muncul, PASTIKAN opsi berikut dicentang:
+   [v] Use WSL 2 instead of Hyper-V (recommended)
+   [v] Add shortcut to desktop
+
+4. Klik "OK" dan tunggu proses instalasi selesai (sekitar 3 - 5 menit).
+
+5. Setelah instalasi selesai, klik tombol "Close and restart" untuk me-restart 
+   komputer agar komponen virtualisasi Windows aktif.
+
+6. Setelah komputer menyala kembali, buka aplikasi "Docker Desktop" dari Desktop 
+   atau Start Menu.
+
+7. Jika muncul jendela "Docker Subscription Service Agreement", klik "Accept".
+
+8. Tunggu hingga ikon ikan paus (whale) di pojok kiri bawah jendela Docker Desktop
+   berwarna HIJAU dengan status: "Engine running".
+
+CATATAN PENTING:
+Jika di komputer Anda terdapat aplikasi XAMPP, pastikan layanan MySQL di XAMPP 
+dalam keadaan MATI (Stop) agar tidak terjadi bentrok di port 3306.
+
+
+================================================================================
+LANGKAH 2: MENJALANKAN DATABASE MYSQL (docker-start.bat)
+================================================================================
+Setelah Docker Desktop berstatus "Engine running":
+
+1. Letakkan berkas "docker-compose.yml", "docker-start.bat", dan "docker-stop.bat"
+   di dalam satu folder yang sama.
+
+2. Klik dua kali (double-click) pada berkas:
+   docker-start.bat
+
+3. Jendela Command Prompt hitam akan terbuka. Docker akan secara otomatis:
+   - Mengunduh image resmi MySQL 8.0 (hanya dilakukan saat pertama kali).
+   - Membuat container database bernama "mysql-karyawan".
+   - Membuat database "sistem_pemantauan_karyawan" secara otomatis.
+   - Mengatur password root "root" pada port 3306.
+   - Mengamankan data ke dalam volume persisten agar data tidak hilang 
+     saat komputer dimatikan.
+
+4. Tunggu beberapa saat sampai muncul pesan sukses di layar:
+   --------------------------------------------------------
+   [SUKSES] Database MySQL 'sistem_pemantauan_karyawan' berhasil berjalan di port 3306!
+   Anda sekarang dapat membuka aplikasi desktop SIMPEG-PU.
+   Press any key to continue . . .
+   --------------------------------------------------------
+
+5. Tekan tombol sembarang pada keyboard untuk menutup jendela. Database sekarang 
+   sudah aktif dan siap digunakan!
+
+
+================================================================================
+LANGKAH 3: PENGATURAN AGAR DOCKER & DATABASE OTOMATIS BERJALAN SAAT KOMPUTER NYALA
+================================================================================
+Agar Anda TIDAK PERLU mengklik "docker-start.bat" setiap kali menyalakan komputer,
+lakukan pengaturan auto-start berikut (hanya perlu dilakukan SATU KALI):
+
+A. Pengaturan Docker Desktop Menyala Otomatis saat Windows Booting:
+   1. Buka jendela aplikasi Docker Desktop.
+   2. Klik ikon "Settings" (roda gigi / gear) di sudut kanan atas.
+   3. Pada tab menu "General" (di sebelah kiri), pastikan opsi berikut DICENTANG:
+      [v] Start Docker Desktop when you sign in to your computer
+   4. (Opsional): Hilangkan centang pada opsi "Open Docker Desktop dashboard at 
+      startup" jika Anda ingin Docker berjalan di latar belakang (background) 
+      tanpa memunculkan jendela dasbor setiap kali komputer menyala.
+   5. Klik tombol "Apply & restart" di pojok kanan bawah.
+
+B. Otomatisasi Container Database:
+   - Berkas "docker-compose.yml" sudah dikonfigurasi dengan opsi "restart: always".
+   - Artinya: Begitu komputer dinyalakan dan Docker Desktop berjalan di latar 
+     belakang, container database MySQL "mysql-karyawan" akan LANGSUNG MENYALA 
+     OTOMATIS.
+   - Anda dapat langsung membuka aplikasi SIMPEG PU kapan saja tanpa perlu 
+     menjalankan file .bat lagi.
+
+
+================================================================================
+LANGKAH 4: MENGINSTAL & MEMBUKA APLIKASI DESKTOP SIMPEG PU
+================================================================================
+1. Buka file installer aplikasi desktop:
+   SIMPEG-PU-1.0.0-setup.exe
+
+2. Ikuti panduan di layar (klik "Next" / "Install") hingga proses instalasi 
+   selesai.
+
+3. Centang opsi "Run SIMPEG PU" lalu klik "Finish" (atau buka aplikasi melalui 
+   shortcut desktop "SIMPEG PU").
+
+4. Saat aplikasi dibuka pertama kali:
+   Sistem secara otomatis membaca database MySQL dan mengeksekusi migrasi tabel
+   sehingga semua struktur tabel pegawai dan unit kerja UPTD langsung siap.
+
+5. Jendela aplikasi desktop SIMPEG PU akan langsung terbuka dan menampilkan 
+   halaman Dashboard utama.
+
+
+================================================================================
+LANGKAH 5: IMPORT DATA PEGAWAI MENGGUNAKAN EXCEL ("Import Data Pegawai.xlsx")
+================================================================================
+Setelah aplikasi terbuka di layar komputer Anda:
+
+1. Di bilah menu sebelah kiri (Sidebar), klik menu "Import Excel".
+   (Atau bisa juga melalui menu "Data Pegawai" -> klik tombol biru "Import Excel" 
+   di sudut kanan atas).
+
+2. Pada halaman Import Pegawai dari Excel:
+   - Terdapat kotak unggah berkas (Dropzone).
+   - Tarik (drag & drop) berkas "Import Data Pegawai.xlsx" ke dalam kotak tersebut,
+     ATAU klik pada tulisan "klik untuk memilih" lalu pilih berkas 
+     "Import Data Pegawai.xlsx" dari komputer Anda.
+
+3. Nama berkas "Import Data Pegawai.xlsx" dan ukuran filenya akan muncul dengan 
+   ikon centang hijau.
+
+4. Pilih Opsi Update:
+   - "Update data jika pegawai sudah ada" :
+     * Centang kotak ini jika Anda ingin memperbarui data lama pegawai (seperti 
+       perubahan alamat, golongan, atau status) apabila NIP/NIK pegawai tersebut 
+       sudah pernah terdaftar di aplikasi sebelumnya.
+     * Biarkan tidak tercentang jika hanya ingin memasukkan data pegawai baru dan 
+       melewati data yang sudah ada.
+
+5. Klik tombol biru:
+   [ Mulai Import Pegawai ]
+
+6. Tunggu proses pembacaan data berjalan beberapa saat:
+   - Sistem akan membaca seluruh sheet data (format template SIMPEG maupun format 
+     resmi multi-sheet PNS dan PPPK).
+   - NIP, NIK, tanggal lahir otomatis terhitung.
+   - Jadwal KGB (Kenaikan Gaji Berkala) berikutnya otomatis dihitung oleh sistem.
+
+7. Setelah selesai, notifikasi sukses berwarna hijau akan muncul di layar dengan 
+   rincian jumlah data yang berhasil diimpor, diperbarui, dan dilewati.
+
+8. Buka menu "Data Pegawai" untuk melihat seluruh pegawai yang telah berhasil 
+   masuk ke dalam sistem. Anda dapat mencari berdasarkan Nama, NIP, status, 
+   maupun unit kerja UPTD.
+
+
+================================================================================
+TIPS TAMBAHAN & PEMELIHARAAN (TROUBLESHOOTING)
+================================================================================
+
+1. Mengecek Apakah Database Sedang Berjalan:
+   Buka PowerShell / Command Prompt (CMD), lalu jalankan perintah:
+   docker ps
+   Jika aktif, container "mysql-karyawan" akan tercantum dengan status "Up".
+
+2. Mematikan Database Sementara (Jika Diperlukan):
+   Klik dua kali pada berkas "docker-stop.bat".
+   (Catatan: Data pegawai tetap aman tersimpan di volume Docker).
+
+3. Mengatasi Error "No connection could be made because the target machine actively refused it":
+   - Artinya: Aplikasi SIMPEG PU dibuka saat Docker Desktop belum selesai menyala.
+   - Solusi: Pastikan Docker Desktop sudah berstatus hijau (Engine running), 
+     lalu klik dua kali "docker-start.bat", setelah itu buka kembali aplikasi 
+     SIMPEG PU.
+
+4. Mencadangkan (Backup) Seluruh Data Pegawai ke File SQL:
+   Buka terminal di folder aplikasi lalu ketik:
+   docker exec mysql-karyawan mysqldump -uroot -proot sistem_pemantauan_karyawan > backup_data_pegawai.sql
+
+5. Mengembalikan (Restore) Data Cadangan:
+   docker exec -i mysql-karyawan mysql -uroot -proot sistem_pemantauan_karyawan < backup_data_pegawai.sql
+
+================================================================================
+     Dinas Sumber Daya Air, Cipta Karya & Tata Ruang Provinsi Sulawesi Selatan
+================================================================================

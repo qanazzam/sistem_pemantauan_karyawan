@@ -37,6 +37,7 @@ class UptdController extends Controller
             $search = $request->search;
             $query->where(function ($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")
+                    ->orWhere('nip', 'like', "%{$search}%")
                     ->orWhere('nik', 'like', "%{$search}%");
             });
         }
@@ -51,12 +52,22 @@ class UptdController extends Controller
 
         $pegawai = $query->orderBy('nama')->paginate(15)->withQueryString();
 
+        $statsRaw = $uptd->pegawai()
+            ->selectRaw("
+                COUNT(*) as total,
+                COUNT(CASE WHEN status_kepegawaian IN ('PNS', 'ASN') THEN 1 END) as pns,
+                COUNT(CASE WHEN status_kepegawaian IN ('PPPK', 'PPPK PW') THEN 1 END) as pppk,
+                COUNT(CASE WHEN status_aktif = 'Aktif' THEN 1 END) as aktif,
+                COUNT(CASE WHEN status_aktif = 'Pensiun' THEN 1 END) as pensiun
+            ")
+            ->first();
+
         $stats = [
-            'total' => $uptd->pegawai()->count(),
-            'pns' => $uptd->pegawai()->whereIn('status_kepegawaian', Pegawai::GROUP_PNS)->count(),
-            'pppk' => $uptd->pegawai()->whereIn('status_kepegawaian', Pegawai::GROUP_PPPK)->count(),
-            'aktif' => $uptd->pegawai()->where('status_aktif', 'Aktif')->count(),
-            'pensiun' => $uptd->pegawai()->where('status_aktif', 'Pensiun')->count(),
+            'total' => (int) ($statsRaw->total ?? 0),
+            'pns' => (int) ($statsRaw->pns ?? 0),
+            'pppk' => (int) ($statsRaw->pppk ?? 0),
+            'aktif' => (int) ($statsRaw->aktif ?? 0),
+            'pensiun' => (int) ($statsRaw->pensiun ?? 0),
         ];
 
         return view('uptd.show', compact('uptd', 'pegawai', 'stats'));

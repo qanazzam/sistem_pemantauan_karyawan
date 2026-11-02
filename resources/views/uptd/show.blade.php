@@ -90,7 +90,7 @@
         <div class="col-lg-4 col-md-4">
             <div class="d-flex gap-2">
                 <button type="submit" class="btn-filter">
-                    <i class="bi bi-funnel-fill"></i> Filter
+                    <i class="bi bi-search"></i> Search
                 </button>
                 <a href="{{ route('uptd.show', $uptd) }}" class="btn-reset">Reset</a>
             </div>
@@ -127,8 +127,16 @@
                             <a href="{{ route('pegawai.show', $p) }}" class="fw-semibold text-dark" style="font-size:13.5px;">
                                 {{ $p->nama }}
                             </a>
+                        <td style="font-family:monospace;font-size:12.5px;color:var(--text-secondary);">
+                            @if($p->nip)
+                                {{ $p->nip }}
+                            @elseif($p->nik)
+                                <span>{{ $p->nik }}</span>
+                                <span class="badge bg-light text-secondary border ms-1" style="font-size:10px;" title="Belum ada NIP, menggunakan NIK">NIK</span>
+                            @else
+                                -
+                            @endif
                         </td>
-                        <td style="font-family:monospace;font-size:12.5px;color:var(--text-secondary);">{{ $p->nik ?? '-' }}</td>
                         <td><span class="badge-custom {{ $p->kepegawaian_badge_class }}">{{ $p->status_kepegawaian }}</span></td>
                         <td><span class="badge-custom {{ $p->status_badge_class }}">{{ $p->status_aktif }}</span></td>
                         <td style="font-size:13px;">{{ $p->kabupaten_kota ?? '-' }}</td>

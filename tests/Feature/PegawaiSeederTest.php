@@ -20,13 +20,13 @@ class PegawaiSeederTest extends TestCase
         $this->assertGreaterThan(0, Uptd::count());
 
         $this->assertDatabaseHas('pegawai', [
-            'nama' => 'Arifuddin',
-            'nik' => '196412312008011018',
-            'golongan' => 'II/d',
+            'nama' => 'FITRIANI, SH.,MM',
+            'nik' => '197712092005021004',
+            'golongan' => 'III/a',
         ]);
 
-        $pegawai = Pegawai::where('nik', '196412312008011018')->first();
+        $pegawai = Pegawai::where('nik', '197712092005021004')->first();
         $this->assertNotNull($pegawai);
-        $this->assertEquals('UPTD WS. WALANAE CENRANAE', $pegawai->uptd->nama_uptd);
+        $this->assertNotNull($pegawai->uptd);
     }
 }

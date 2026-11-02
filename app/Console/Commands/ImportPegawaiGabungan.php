@@ -62,6 +62,7 @@ class ImportPegawaiGabungan extends Command
 
             $data = array_filter([
                 'nama' => $nama,
+                'nip' => $nip !== '' ? substr($nip, 0, 30) : null,
                 'nik' => $nip !== '' ? substr($nip, 0, 20) : null,
                 'no_kk' => $kk !== '' ? substr($kk, 0, 20) : null,
                 'provinsi' => $this->clean($r[4] ?? null),

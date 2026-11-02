@@ -16,24 +16,23 @@ class KgbController extends Controller
         // Majukan jadwal KGB (berbasis TMT pengangkatan dari NIP) yang sudah lewat
         Pegawai::perbaruiJadwalKgb();
 
-        $now = now();
-        $in90Days = now()->addDays(90);
+        $now = now()->toDateString();
+        $in90Days = now()->addDays(90)->toDateString();
 
-        // Calculate statistics
-        $totalWajibKgb = Pegawai::where('status_aktif', 'Aktif')->count();
-        $totalJatuhTempo = Pegawai::where('status_aktif', 'Aktif')
-            ->whereNotNull('tmt_kgb_berikutnya')
-            ->where('tmt_kgb_berikutnya', '<=', $now)
-            ->count();
-        $totalSegera = Pegawai::where('status_aktif', 'Aktif')
-            ->whereNotNull('tmt_kgb_berikutnya')
-            ->where('tmt_kgb_berikutnya', '>', $now)
-            ->where('tmt_kgb_berikutnya', '<=', $in90Days)
-            ->count();
-        $totalAkanDatang = Pegawai::where('status_aktif', 'Aktif')
-            ->whereNotNull('tmt_kgb_berikutnya')
-            ->where('tmt_kgb_berikutnya', '>', $in90Days)
-            ->count();
+        // Gabungkan 4 query stat menjadi 1 query agregat cepat
+        $stats = Pegawai::where('status_aktif', 'Aktif')
+            ->selectRaw("
+                COUNT(*) as total_wajib_kgb,
+                COUNT(CASE WHEN tmt_kgb_berikutnya IS NOT NULL AND tmt_kgb_berikutnya <= ? THEN 1 END) as total_jatuh_tempo,
+                COUNT(CASE WHEN tmt_kgb_berikutnya IS NOT NULL AND tmt_kgb_berikutnya > ? AND tmt_kgb_berikutnya <= ? THEN 1 END) as total_segera,
+                COUNT(CASE WHEN tmt_kgb_berikutnya IS NOT NULL AND tmt_kgb_berikutnya > ? THEN 1 END) as total_akan_datang
+            ", [$now, $now, $in90Days, $in90Days])
+            ->first();
+
+        $totalWajibKgb = (int) ($stats->total_wajib_kgb ?? 0);
+        $totalJatuhTempo = (int) ($stats->total_jatuh_tempo ?? 0);
+        $totalSegera = (int) ($stats->total_segera ?? 0);
+        $totalAkanDatang = (int) ($stats->total_akan_datang ?? 0);
 
         // Build query
         $query = Pegawai::with('uptd');
@@ -43,6 +42,7 @@ class KgbController extends Controller
             $search = trim($request->search);
             $query->where(function ($q) use ($search) {
                 $q->where('nama', 'like', "%{$search}%")
+                    ->orWhere('nip', 'like', "%{$search}%")
                     ->orWhere('nik', 'like', "%{$search}%");
             });
         }

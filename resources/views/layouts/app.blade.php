@@ -8,14 +8,16 @@
 
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="{{ asset('images/logo.png') }}">
-    <!-- Bootstrap 5 CSS -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <!-- Bootstrap Icons -->
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css" rel="stylesheet">
+    <!-- Bootstrap 5 CSS (Local) -->
+    <link href="{{ asset('vendor/bootstrap/css/bootstrap.min.css') }}" rel="stylesheet">
+    <!-- Bootstrap Icons (Local) -->
+    <link href="{{ asset('vendor/bootstrap-icons/bootstrap-icons.min.css') }}" rel="stylesheet">
     <!-- Custom CSS -->
     <link href="{{ asset('css/app.css') }}" rel="stylesheet">
 </head>
 <body>
+    <!-- Top Progress Bar (Instant Navigation Feedback) -->
+    <div id="pageProgressBar" class="page-progress-bar"></div>
     <!-- Sidebar Overlay (mobile) -->
     <div class="sidebar-overlay" id="sidebarOverlay" onclick="toggleSidebar()"></div>
 
@@ -138,16 +140,29 @@
         </footer>
     </main>
 
-    <!-- Bootstrap JS -->
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
-    <!-- Chart.js -->
-    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+    <!-- Bootstrap JS (Local) -->
+    <script src="{{ asset('vendor/bootstrap/js/bootstrap.bundle.min.js') }}"></script>
+    <!-- Chart.js (Local) -->
+    <script src="{{ asset('vendor/chartjs/chart.umd.min.js') }}"></script>
 
     <script>
         function toggleSidebar() {
             document.getElementById('sidebar').classList.toggle('show');
             document.getElementById('sidebarOverlay').classList.toggle('show');
         }
+
+        // Instant visual feedback on link click & double-click cancellation protection
+        document.addEventListener('click', function(e) {
+            const link = e.target.closest('a');
+            if (!link) return;
+            const href = link.getAttribute('href');
+            if (href && !href.startsWith('#') && !href.startsWith('javascript:') && !link.hasAttribute('download') && link.target !== '_blank') {
+                const bar = document.getElementById('pageProgressBar');
+                if (bar) bar.classList.add('loading');
+                link.style.opacity = '0.65';
+                link.style.pointerEvents = 'none'; // Prevent double clicking which cancels the request
+            }
+        });
     </script>
 
     @stack('scripts')

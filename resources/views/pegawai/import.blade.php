@@ -46,7 +46,7 @@
                     </div>
 
                     <!-- Selected File Info -->
-                    <div id="fileInfoBox" class="p-3 mb-3 d-none" style="background: #F3ECE4; border: 1px solid var(--border-color); border-radius: var(--border-radius-sm);">
+                    <div id="fileInfoBox" class="p-3 mb-3 d-none" style="background: var(--primary-subtle); border: 1px solid var(--border-color-yellow); border-radius: var(--border-radius-sm);">
                         <div class="d-flex align-items-center justify-content-between">
                             <div class="d-flex align-items-center gap-2">
                                 <i class="bi bi-file-earmark-check-fill text-success fs-5"></i>
@@ -92,7 +92,7 @@
                         Gunakan berkas template resmi yang sudah diformat dengan kolom standar kepegawaian dan formula pendukung untuk mempermudah proses input massal.
                     </p>
 
-                    <a href="{{ route('pegawai.template') }}" class="btn-secondary-custom w-100 justify-content-center mb-4 py-2" style="background: #FAF8F5;">
+                    <a href="{{ route('pegawai.template') }}" class="btn-secondary-custom w-100 justify-content-center mb-4 py-2" style="background: #FFFFFF;">
                         <i class="bi bi-file-earmark-arrow-down text-success fs-5"></i>
                         <span>Unduh Template Format SIMPEG Terbaru (.xlsx)</span>
                     </a>
@@ -189,8 +189,22 @@
                         <td><code>GOLONGAN</code></td>
                         <td><span class="badge bg-secondary">Opsional</span></td>
                         <td>Teks</td>
-                        <td>III/c atau Gol. IX</td>
-                        <td>Pangkat/Golongan ruang untuk KGB</td>
+                        <td>III/c atau IX</td>
+                        <td>Pangkat/Golongan ruang untuk penyesuaian gaji KGB</td>
+                    </tr>
+                    <tr>
+                        <td><code>MKG_TAHUN</code></td>
+                        <td><span class="badge bg-secondary">Opsional</span></td>
+                        <td>Angka</td>
+                        <td>12</td>
+                        <td>Masa kerja golongan (tahun)</td>
+                    </tr>
+                    <tr>
+                        <td><code>MKG_BULAN</code></td>
+                        <td><span class="badge bg-secondary">Opsional</span></td>
+                        <td>Angka</td>
+                        <td>0</td>
+                        <td>Masa kerja golongan (bulan, 0-11)</td>
                     </tr>
                     <tr>
                         <td><code>TMT_KGB_TERAKHIR</code></td>
@@ -204,7 +218,56 @@
                         <td><span class="badge bg-secondary">Opsional</span></td>
                         <td>Angka</td>
                         <td>3850000</td>
-                        <td>Gaji pokok dasar (tanpa titik atau koma)</td>
+                        <td>Gaji pokok dasar saat ini (tanpa titik atau koma)</td>
+                    </tr>
+                    <tr>
+                        <td><code>PROVINSI</code></td>
+                        <td><span class="badge bg-secondary">Opsional</span></td>
+                        <td>Teks</td>
+                        <td>SULAWESI SELATAN</td>
+                        <td>Provinsi domisili pegawai</td>
+                    </tr>
+                    <tr>
+                        <td><code>KABUPATEN_KOTA</code></td>
+                        <td><span class="badge bg-secondary">Opsional</span></td>
+                        <td>Teks</td>
+                        <td>MAKASSAR</td>
+                        <td>Kabupaten / Kota domisili pegawai</td>
+                    </tr>
+                    <tr>
+                        <td><code>KECAMATAN</code></td>
+                        <td><span class="badge bg-secondary">Opsional</span></td>
+                        <td>Teks</td>
+                        <td>PANAKKUKANG</td>
+                        <td>Kecamatan domisili pegawai</td>
+                    </tr>
+                    <tr>
+                        <td><code>KELURAHAN</code></td>
+                        <td><span class="badge bg-secondary">Opsional</span></td>
+                        <td>Teks</td>
+                        <td>PAMPANG</td>
+                        <td>Kelurahan / Desa domisili pegawai</td>
+                    </tr>
+                    <tr>
+                        <td><code>ALAMAT_DOMISILI</code></td>
+                        <td><span class="badge bg-secondary">Opsional</span></td>
+                        <td>Teks</td>
+                        <td>Jl. Urip Sumoharjo No. 12</td>
+                        <td>Alamat lengkap tempat tinggal saat ini</td>
+                    </tr>
+                    <tr>
+                        <td><code>NO_HP</code></td>
+                        <td><span class="badge bg-secondary">Opsional</span></td>
+                        <td>Teks</td>
+                        <td>081234567890</td>
+                        <td>Nomor handphone / WhatsApp pegawai</td>
+                    </tr>
+                    <tr>
+                        <td><code>ALAMAT_KTP</code></td>
+                        <td><span class="badge bg-secondary">Opsional</span></td>
+                        <td>Teks</td>
+                        <td>Jl. Urip Sumoharjo No. 12</td>
+                        <td>Alamat sesuai KTP (jika berbeda dengan domisili)</td>
                     </tr>
                 </tbody>
             </table>

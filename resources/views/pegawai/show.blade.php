@@ -63,7 +63,12 @@
             </div>
             <div class="detail-info-grid">
                 <div class="detail-info-item">
-                    <span class="detail-info-label">NIP / NIK</span>
+                    <span class="detail-info-label">NIP</span>
+                    <span class="detail-info-value font-monospace">{{ $pegawai->nip ?? '-' }}</span>
+                </div>
+
+                <div class="detail-info-item">
+                    <span class="detail-info-label">NIK (KTP)</span>
                     <span class="detail-info-value font-monospace">{{ $pegawai->nik ?? '-' }}</span>
                 </div>
 
@@ -113,11 +118,15 @@
                     <i class="bi bi-cash-stack"></i> Kenaikan Gaji Berkala (KGB)
                 </h6>
                 @if($pegawai->status_aktif === 'Aktif')
-                <span class="badge-custom {{ $pegawai->kgb_badge_class }}">
-                    {{ $pegawai->status_kgb }} &bull; {{ $pegawai->sisa_waktu_kgb }}
-                </span>
+                    @if($pegawai->tmt_kgb_berikutnya)
+                        <span class="badge-custom {{ $pegawai->kgb_badge_class }}">
+                            {{ $pegawai->status_kgb }} &bull; {{ $pegawai->sisa_waktu_kgb }}
+                        </span>
+                    @else
+                        <span class="badge bg-light text-muted border">-</span>
+                    @endif
                 @else
-                <span class="badge-custom badge-pensiun">Pensiun (Tidak Berlaku)</span>
+                    <span class="badge-custom badge-pensiun">Pensiun (Tidak Berlaku)</span>
                 @endif
             </div>
 
@@ -140,7 +149,7 @@
                                     <span class="badge bg-light text-muted border ms-1" style="font-size:11px;font-weight:normal;" title="Bulan TMT diperkirakan Januari (kode NIP 21)">(perkiraan)</span>
                                 @endif
                             @else
-                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size:11px;">NIP tidak valid</span>
+                                -
                             @endif
                         </span>
                     </div>

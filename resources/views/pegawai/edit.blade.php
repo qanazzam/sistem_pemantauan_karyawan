@@ -47,10 +47,20 @@
                 </div>
 
                 <div class="col-md-3">
-                    <label class="form-label-custom">NIP (atau NIK) <span class="text-danger">*</span></label>
-                    <input type="text" name="nik" maxlength="25" class="form-control font-monospace @error('nik') is-invalid @enderror"
-                           placeholder="NIP atau NIK" value="{{ old('nik', $pegawai->nik) }}" required>
-                    <small class="text-muted" style="font-size:11px;">Jika belum ada NIP, masukkan NIK</small>
+                    <label class="form-label-custom">NIP (18 Digit)</label>
+                    <input type="text" name="nip" id="inputNip" maxlength="25" class="form-control font-monospace @error('nip') is-invalid @enderror"
+                           placeholder="Contoh: 19820815..." value="{{ old('nip', $pegawai->nip) }}">
+                    <small class="text-muted" style="font-size:11px;">Otomatis mengisi Tanggal Lahir & KGB</small>
+                    @error('nip')
+                        <div class="invalid-feedback">{{ $message }}</div>
+                    @enderror
+                </div>
+
+                <div class="col-md-3">
+                    <label class="form-label-custom">NIK (16 Digit KTP)</label>
+                    <input type="text" name="nik" id="inputNik" maxlength="25" class="form-control font-monospace @error('nik') is-invalid @enderror"
+                           placeholder="Contoh: 737101..." value="{{ old('nik', $pegawai->nik) }}">
+                    <small class="text-muted" style="font-size:11px;">Bisa diisi jika belum memiliki NIP</small>
                     @error('nik')
                         <div class="invalid-feedback">{{ $message }}</div>
                     @enderror
@@ -63,9 +73,10 @@
                 </div>
 
                 <div class="col-md-3">
-                    <label class="form-label-custom">Tanggal Lahir</label>
+                    <label class="form-label-custom">Tanggal Lahir <small class="text-primary fw-normal">(Otomatis dari NIP)</small></label>
                     <input type="date" name="tanggal_lahir" id="inputTanggalLahir" class="form-control"
                            value="{{ old('tanggal_lahir', $pegawai->tanggal_lahir ? $pegawai->tanggal_lahir->format('Y-m-d') : '') }}">
+                    <small class="text-muted" style="font-size:11px;">Kosong jika belum ada NIP (pakai NIK)</small>
                 </div>
 
                 <div class="col-md-3">
@@ -104,9 +115,15 @@
                     <select name="uptd_id" class="form-select @error('uptd_id') is-invalid @enderror" required>
                         <option value="">-- Pilih Unit Kerja (UPTD) --</option>
                         @foreach($uptdList as $uptd)
-                            <option value="{{ $uptd->id }}" {{ old('uptd_id', $pegawai->uptd_id) == $uptd->id ? 'selected' : '' }}>
-                                {{ $uptd->nama_uptd }}
-                            </option>
+                            @php
+                                $uptdId = is_object($uptd) ? ($uptd->id ?? '') : (is_array($uptd) ? ($uptd['id'] ?? '') : $uptd);
+                                $uptdNama = is_object($uptd) ? ($uptd->nama_uptd ?? '') : (is_array($uptd) ? ($uptd['nama_uptd'] ?? '') : $uptd);
+                            @endphp
+                            @if($uptdNama)
+                                <option value="{{ $uptdId }}" {{ old('uptd_id', $pegawai->uptd_id) == $uptdId ? 'selected' : '' }}>
+                                    {{ $uptdNama }}
+                                </option>
+                            @endif
                         @endforeach
                     </select>
                     @error('uptd_id')
@@ -288,6 +305,37 @@ document.addEventListener('DOMContentLoaded', function() {
 
     inputTglLahir.addEventListener('change', calculateAge);
     if (inputTglLahir.value) calculateAge();
+
+    // Auto-sync Tanggal Lahir from NIP (18 digit)
+    const inputNip = document.getElementById('inputNip') || document.querySelector('input[name="nip"]');
+    function syncTanggalLahirFromNip() {
+        const rawNip = (inputNip ? inputNip.value : '').replace(/\D/g, '');
+        if (rawNip.length === 18) {
+            const yyyy = rawNip.substring(0, 4);
+            const mm = rawNip.substring(4, 6);
+            const dd = rawNip.substring(6, 8);
+
+            const y = parseInt(yyyy, 10);
+            const m = parseInt(mm, 10);
+            const d = parseInt(dd, 10);
+            if (y >= 1930 && y <= new Date().getFullYear() && m >= 1 && m <= 12 && d >= 1 && d <= 31) {
+                const dateObj = new Date(y, m - 1, d);
+                if (dateObj.getFullYear() === y && dateObj.getMonth() === m - 1 && dateObj.getDate() === d) {
+                    inputTglLahir.value = `${yyyy}-${mm}-${dd}`;
+                    calculateAge();
+                    return;
+                }
+            }
+        } else if (!rawNip || rawNip.length === 0) {
+            inputTglLahir.value = '';
+            calculateAge();
+        }
+    }
+
+    if (inputNip) {
+        inputNip.addEventListener('input', syncTanggalLahirFromNip);
+        inputNip.addEventListener('change', syncTanggalLahirFromNip);
+    }
 
     const inputTmtTerakhir = document.getElementById('inputTmtKgbTerakhir');
     const inputTmtBerikutnya = document.getElementById('inputTmtKgbBerikutnya');

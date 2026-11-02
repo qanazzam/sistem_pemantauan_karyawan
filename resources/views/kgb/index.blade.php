@@ -87,9 +87,15 @@
             <select name="uptd_id" class="form-select">
                 <option value="">Semua UPTD</option>
                 @foreach($uptdList as $u)
-                    <option value="{{ $u->id }}" {{ request('uptd_id') == $u->id ? 'selected' : '' }}>
-                        {{ $u->nama_uptd }}
-                    </option>
+                    @php
+                        $uId = is_object($u) ? ($u->id ?? '') : (is_array($u) ? ($u['id'] ?? '') : $u);
+                        $uNama = is_object($u) ? ($u->nama_uptd ?? '') : (is_array($u) ? ($u['nama_uptd'] ?? '') : $u);
+                    @endphp
+                    @if($uNama)
+                        <option value="{{ $uId }}" {{ request('uptd_id') == $uId ? 'selected' : '' }}>
+                            {{ $uNama }}
+                        </option>
+                    @endif
                 @endforeach
             </select>
         </div>
@@ -107,7 +113,7 @@
         <div class="col-lg-2 col-md-6 col-12">
             <div class="d-flex gap-2">
                 <button type="submit" class="btn-filter w-100 justify-content-center">
-                    <i class="bi bi-funnel-fill"></i> Filter
+                    <i class="bi bi-search"></i> Search
                 </button>
                 <a href="{{ route('kgb.index') }}" class="btn-reset">Reset</a>
             </div>
@@ -153,7 +159,13 @@
                                 {{ $p->nama }}
                             </a>
                             <small style="font-family:monospace;font-size:11.5px;color:var(--text-muted);">
-                                NIP: {{ $p->nik ?? '-' }}
+                                @if($p->nip)
+                                    NIP: {{ $p->nip }}
+                                @elseif($p->nik)
+                                    NIK: {{ $p->nik }} <span class="badge bg-light text-secondary border" style="font-size:9.5px;">KTP</span>
+                                @else
+                                    NIP: -
+                                @endif
                             </small>
                         </td>
                         <td>
@@ -170,7 +182,7 @@
                                 </div>
                                 <small style="font-size:11.5px;">Masa kerja {{ $p->masa_kerja }}</small>
                             @else
-                                <span class="badge bg-danger-subtle text-danger border border-danger-subtle" style="font-size:11px;" title="NIP tidak valid atau kosong">NIP tidak valid</span>
+                                <span class="text-muted">-</span>
                             @endif
                         </td>
                         <td style="font-size:12.5px;color:var(--text-secondary);max-width:150px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;">
@@ -189,19 +201,23 @@
                             @endif
                         </td>
                         <td>
-                            <span class="badge-custom {{ $p->kgb_badge_class }}">
-                                @if($p->status_kgb === 'Jatuh Tempo')
-                                    <i class="bi bi-exclamation-circle-fill"></i>
-                                @elseif($p->status_kgb === 'Segera KGB')
-                                    <i class="bi bi-bell-fill"></i>
-                                @elseif($p->status_kgb === 'Akan Datang')
-                                    <i class="bi bi-check-circle-fill"></i>
-                                @endif
-                                {{ $p->status_kgb }}
-                            </span>
-                            <div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">
-                                {{ $p->sisa_waktu_kgb }}
-                            </div>
+                            @if($p->tmt_kgb_berikutnya)
+                                <span class="badge-custom {{ $p->kgb_badge_class }}">
+                                    @if($p->status_kgb === 'Jatuh Tempo')
+                                        <i class="bi bi-exclamation-circle-fill"></i>
+                                    @elseif($p->status_kgb === 'Segera KGB')
+                                        <i class="bi bi-bell-fill"></i>
+                                    @elseif($p->status_kgb === 'Akan Datang')
+                                        <i class="bi bi-check-circle-fill"></i>
+                                    @endif
+                                    {{ $p->status_kgb }}
+                                </span>
+                                <div style="font-size:11.5px;color:var(--text-secondary);margin-top:2px;">
+                                    {{ $p->sisa_waktu_kgb }}
+                                </div>
+                            @else
+                                <span class="text-muted">-</span>
+                            @endif
                         </td>
                         <td class="text-center">
                             <a href="{{ route('pegawai.show', $p) }}" class="btn-action btn-view" title="Detail Pegawai">

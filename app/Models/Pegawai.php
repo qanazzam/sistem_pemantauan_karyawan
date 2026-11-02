@@ -5,6 +5,7 @@ namespace App\Models;
 use Carbon\Carbon;
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Relations\BelongsTo;
+use Illuminate\Support\Facades\Cache;
 
 class Pegawai extends Model
 {
@@ -19,6 +20,7 @@ class Pegawai extends Model
     protected $fillable = [
         'uptd_id',
         'nama',
+        'nip',
         'nik',
         'no_kk',
         'tanggal_lahir',
@@ -58,10 +60,57 @@ class Pegawai extends Model
 
     protected static function booted(): void
     {
-        // Setiap kali disimpan, hitung ulang TMT pengangkatan & jadwal KGB dari NIP.
+        // Setiap kali disimpan, sinkronkan tanggal lahir dari NIP & hitung ulang TMT pengangkatan & jadwal KGB dari NIP.
         static::saving(function (Pegawai $p) {
+            $p->sinkronkanTanggalLahirDariNip();
             $p->hitungJadwalKgb();
         });
+    }
+
+    /**
+     * Ambil tanggal lahir dari NIP 18 digit (8 digit pertama: YYYYMMDD).
+     */
+    public static function tanggalLahirDariNip(?string $nip): ?Carbon
+    {
+        $nip = preg_replace('/\D/', '', (string) $nip);
+        if (strlen($nip) !== 18) {
+            return null;
+        }
+
+        $tahun = (int) substr($nip, 0, 4);
+        $bulan = (int) substr($nip, 4, 2);
+        $hari = (int) substr($nip, 6, 2);
+
+        if ($tahun < 1930 || $tahun > (int) now()->year || ! checkdate($bulan, $hari, $tahun)) {
+            return null;
+        }
+
+        return Carbon::create($tahun, $bulan, $hari)->startOfDay();
+    }
+
+    /**
+     * Sinkronkan tanggal lahir otomatis dari NIP.
+     * Jika ada NIP (18 digit), tanggal lahir diisi otomatis dari NIP dan umur dihitung.
+     * Jika tidak ada NIP (fallback ke NIK) atau NIP tidak valid, maka tanggal lahir dan umur dikosongkan (null).
+     */
+    public function sinkronkanTanggalLahirDariNip(): void
+    {
+        if (empty($this->nip)) {
+            $this->tanggal_lahir = null;
+            $this->umur = null;
+
+            return;
+        }
+
+        $tglLahir = self::tanggalLahirDariNip($this->nip);
+        if ($tglLahir) {
+            $this->tanggal_lahir = $tglLahir->toDateString();
+            $this->umur = $tglLahir->age;
+        } else {
+            // NIP tidak valid 18 digit
+            $this->tanggal_lahir = null;
+            $this->umur = null;
+        }
     }
 
     /**
@@ -97,20 +146,32 @@ class Pegawai extends Model
      */
     public function getTmtPerkiraanAttribute(): bool
     {
-        $nip = preg_replace('/\D/', '', (string) $this->nik);
+        if (empty($this->nip)) {
+            return false;
+        }
+
+        $nip = preg_replace('/\D/', '', (string) $this->nip);
 
         return strlen($nip) === 18 && substr($nip, 12, 2) === '21';
     }
 
     /**
      * Hitung KGB terakhir & berikutnya: setiap 2 tahun sejak TMT pengangkatan.
-     * KGB pada bulan berjalan tetap ditampilkan (status "Jatuh Tempo") hingga bulan berganti.
+     * Jika NIP kosong (fallback ke NIK) atau NIP tidak valid, TMT dan Jadwal KGB menjadi null ("-").
      */
     public function hitungJadwalKgb(): void
     {
-        $tmt = self::tmtDariNip($this->nik);
+        if (empty($this->nip)) {
+            $this->tmt_pengangkatan = null;
+            $this->tmt_kgb_terakhir = null;
+            $this->tmt_kgb_berikutnya = null;
+
+            return;
+        }
+
+        $tmt = self::tmtDariNip($this->nip);
         if (! $tmt) {
-            // NIP tidak valid: jadwal KGB dikosongkan agar NIP diperbaiki
+            // NIP tidak valid: jadwal KGB dan TMT dikosongkan agar menjadi "-"
             $this->tmt_pengangkatan = null;
             $this->tmt_kgb_terakhir = null;
             $this->tmt_kgb_berikutnya = null;
@@ -132,13 +193,24 @@ class Pegawai extends Model
 
     /**
      * Majukan jadwal KGB yang sudah lewat bulan (dipanggil saat halaman dibuka).
+     * Dibatasi dengan cache agar tidak berjalan berulang-ulang di setiap navigasi halaman.
      */
-    public static function perbaruiJadwalKgb(): void
+    public static function perbaruiJadwalKgb(bool $force = false): void
     {
+        if (! $force && Cache::has('kgb_jadwal_last_updated')) {
+            return;
+        }
+
         static::whereNotNull('tmt_pengangkatan')
             ->where(fn ($q) => $q->whereNull('tmt_kgb_berikutnya')
                 ->orWhere('tmt_kgb_berikutnya', '<', now()->startOfMonth()->toDateString()))
-            ->each(fn (Pegawai $p) => $p->save());
+            ->chunkById(100, function ($pegawais) {
+                foreach ($pegawais as $p) {
+                    $p->save();
+                }
+            });
+
+        Cache::put('kgb_jadwal_last_updated', true, now()->addHour());
     }
 
     /**
@@ -156,16 +228,11 @@ class Pegawai extends Model
     }
 
     /**
-     * NIP / NIK alias accessor and mutator.
+     * Identitas tampilan (NIP jika ada, atau NIK jika belum memiliki NIP).
      */
-    public function getNipAttribute(): ?string
+    public function getNomorIdentitasAttribute(): ?string
     {
-        return $this->nik;
-    }
-
-    public function setNipAttribute($value): void
-    {
-        $this->attributes['nik'] = $value;
+        return $this->nip ?: $this->nik;
     }
 
     /**
@@ -184,6 +251,23 @@ class Pegawai extends Model
         return $this->tanggal_lahir
             ? $this->tanggal_lahir->format('d F Y')
             : '-';
+    }
+
+    /**
+     * Get formatted TMT Pengangkatan.
+     */
+    public function getTmtPengangkatanFormattedAttribute(): string
+    {
+        if (! $this->tmt_pengangkatan) {
+            return '-';
+        }
+
+        $formatted = $this->tmt_pengangkatan->locale('id')->translatedFormat('F Y');
+        if ($this->tmt_perkiraan) {
+            $formatted .= ' (perkiraan)';
+        }
+
+        return $formatted;
     }
 
     /**
@@ -212,7 +296,7 @@ class Pegawai extends Model
     public function getUmurSekarangAttribute(): ?int
     {
         if (! $this->tanggal_lahir) {
-            return $this->umur;
+            return null;
         }
 
         return $this->tanggal_lahir->age;
@@ -228,7 +312,7 @@ class Pegawai extends Model
         }
 
         if (! $this->tmt_kgb_berikutnya) {
-            return 'Belum Ada Data';
+            return '-';
         }
 
         if ($this->tmt_kgb_berikutnya->isPast()) {

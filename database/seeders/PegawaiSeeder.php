@@ -79,6 +79,9 @@ class PegawaiSeeder extends Seeder
     public function run(): void
     {
         $filePath = base_path('DATA_PEGAWAI_DENGAN_STATUS.xlsx');
+        if (! file_exists($filePath)) {
+            $filePath = base_path('Template_Import_Pegawai_SIMPEG_PU_Sulsel.xlsx');
+        }
 
         if (! file_exists($filePath)) {
             $this->command->error("File Excel tidak ditemukan: {$filePath}");
@@ -182,16 +185,21 @@ class PegawaiSeeder extends Seeder
 
         for ($row = 2; $row <= $highestRow; $row++) {
             $nama = trim((string) ($getVal($row, ['NAMA', 'NAMA_PEGAWAI', 'NAMA_LENGKAP']) ?? $sheet->getCell("A{$row}")->getValue()));
-            $nipRaw = $getVal($row, ['NIP', 'NIK', 'NIP_NIK', 'NIK_KTP', 'KTP']) ?? $sheet->getCell("B{$row}")->getValue();
-            $nik = trim((string) $nipRaw);
+            $nipRaw = $getVal($row, ['NIP', 'NOMOR_INDUK_PEGAWAI', 'NIP_BARU']) ?? $sheet->getCell("B{$row}")->getValue();
+            $nikRaw = $getVal($row, ['NIK', 'KTP', 'NIK_KTP', 'NO_KTP']);
+            $nip = trim((string) $nipRaw);
+            $nik = $nikRaw !== null ? trim((string) $nikRaw) : '';
+            if (empty($nik)) {
+                $nik = $nip;
+            }
 
             // Skip empty rows or incomplete data
-            if (empty($nama) && empty($nik)) {
+            if (empty($nama) && empty($nip) && empty($nik)) {
                 continue;
             }
-            if (empty($nama) || empty($nik)) {
+            if (empty($nama) || (empty($nip) && empty($nik))) {
                 $skipped++;
-                $this->command->warn("  [Baris {$row}] Dilewati: Nama atau NIP/NIK kosong (Nama: '{$nama}', NIP: '{$nik}').");
+                $this->command->warn("  [Baris {$row}] Dilewati: Nama atau NIP/NIK kosong (Nama: '{$nama}', NIP: '{$nip}').");
 
                 continue;
             }
@@ -289,6 +297,7 @@ class PegawaiSeeder extends Seeder
             $payload = [
                 'uptd_id' => $uptd->id,
                 'nama' => $nama,
+                'nip' => (strlen(preg_replace('/\D/', '', $nip)) === 18 ? $nip : null),
                 'nik' => $nik,
                 'no_kk' => $noKk ?: null,
                 'tanggal_lahir' => $tanggalLahir,
@@ -335,14 +344,15 @@ class PegawaiSeeder extends Seeder
 
         for ($row = 3; $row <= $maxRow; $row++) {
             $colB = trim((string) $sheet->getCell("B{$row}")->getValue());
+            $nip = trim((string) $sheet->getCell("C{$row}")->getValue());
             $nik = trim((string) $sheet->getCell("D{$row}")->getValue());
 
-            if (empty($colB) && empty($nik)) {
+            if (empty($colB) && empty($nip) && empty($nik)) {
                 continue;
             }
 
             // Check if this is an UPTD section header
-            if (empty($nik) && $this->isUptdHeader($colB)) {
+            if (empty($nip) && empty($nik) && $this->isUptdHeader($colB)) {
                 $foundUptd = $this->resolveUptd($colB, $uptdMap);
                 if ($foundUptd) {
                     $currentUptd = $foundUptd;
@@ -352,7 +362,7 @@ class PegawaiSeeder extends Seeder
                 continue;
             }
 
-            if (empty($nik) || empty($colB) || ! $currentUptd) {
+            if ((empty($nip) && empty($nik)) || empty($colB) || ! $currentUptd) {
                 continue;
             }
 
@@ -377,14 +387,27 @@ class PegawaiSeeder extends Seeder
 
             $kepegawaian = (strtoupper($statusPegawai) === 'PPPK' || strtoupper($statusPegawai) === 'P3K') ? 'PPPK' : 'PNS';
 
-            if (Pegawai::where('nik', $nik)->exists()) {
+            $nipVal = (! empty($nip) && $nip !== '-') ? $nip : null;
+            $nikVal = (! empty($nik) && $nik !== '-') ? $nik : ($nipVal ?: null);
+
+            $lookupQuery = Pegawai::query();
+            if ($nipVal && $nikVal) {
+                $lookupQuery->where('nip', $nipVal)->orWhere('nik', $nikVal);
+            } elseif ($nipVal) {
+                $lookupQuery->where('nip', $nipVal)->orWhere('nik', $nipVal);
+            } else {
+                $lookupQuery->where('nik', $nikVal)->orWhere('nip', $nikVal);
+            }
+
+            if ($lookupQuery->exists()) {
                 continue;
             }
 
             Pegawai::create([
                 'uptd_id' => $currentUptd->id,
                 'nama' => $colB,
-                'nik' => $nik,
+                'nip' => $nipVal,
+                'nik' => $nikVal,
                 'tanggal_lahir' => $tanggalLahir,
                 'umur' => $umur,
                 'status_kepegawaian' => $kepegawaian,
@@ -423,13 +446,14 @@ class PegawaiSeeder extends Seeder
 
         for ($row = 3; $row <= $maxRow; $row++) {
             $colB = trim((string) $sheet->getCell("B{$row}")->getValue());
+            $nip = trim((string) $sheet->getCell("C{$row}")->getValue());
             $nik = trim((string) $sheet->getCell("D{$row}")->getValue());
 
-            if (empty($colB) && empty($nik)) {
+            if (empty($colB) && empty($nip) && empty($nik)) {
                 continue;
             }
 
-            if (empty($nik) && $this->isUptdHeader($colB)) {
+            if (empty($nip) && empty($nik) && $this->isUptdHeader($colB)) {
                 $foundUptd = $this->resolveUptd($colB, $uptdMap);
                 if ($foundUptd) {
                     $currentUptd = $foundUptd;
@@ -438,7 +462,7 @@ class PegawaiSeeder extends Seeder
                 continue;
             }
 
-            if (empty($nik) || empty($colB) || ! $currentUptd) {
+            if ((empty($nip) && empty($nik)) || empty($colB) || ! $currentUptd) {
                 continue;
             }
 
@@ -454,7 +478,19 @@ class PegawaiSeeder extends Seeder
 
             $kepegawaian = (strtoupper($statusPegawai) === 'PPPK' || strtoupper($statusPegawai) === 'P3K') ? 'PPPK' : 'PNS';
 
-            $existing = Pegawai::where('nik', $nik)->first();
+            $nipVal = (! empty($nip) && $nip !== '-') ? $nip : null;
+            $nikVal = (! empty($nik) && $nik !== '-') ? $nik : ($nipVal ?: null);
+
+            $lookupQuery = Pegawai::query();
+            if ($nipVal && $nikVal) {
+                $lookupQuery->where('nip', $nipVal)->orWhere('nik', $nikVal);
+            } elseif ($nipVal) {
+                $lookupQuery->where('nip', $nipVal)->orWhere('nik', $nipVal);
+            } else {
+                $lookupQuery->where('nik', $nikVal)->orWhere('nip', $nikVal);
+            }
+
+            $existing = $lookupQuery->first();
             if ($existing) {
                 if (! empty($noKk) && empty($existing->no_kk)) {
                     $existing->update(['no_kk' => $noKk]);
@@ -467,7 +503,8 @@ class PegawaiSeeder extends Seeder
             Pegawai::create([
                 'uptd_id' => $currentUptd->id,
                 'nama' => $colB,
-                'nik' => $nik,
+                'nip' => $nipVal,
+                'nik' => $nikVal,
                 'no_kk' => $noKk ?: null,
                 'status_kepegawaian' => $kepegawaian,
                 'status_aktif' => 'Aktif',
